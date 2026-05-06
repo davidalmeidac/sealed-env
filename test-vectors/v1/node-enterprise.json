@@ -1,0 +1,8 @@
+{
+  "mode": "enterprise",
+  "masterKeyHex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "signingKeyHex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "totpSecretHex": "42872bd5c633df6b42655a88b360fcd2f2ff440a",
+  "plaintext": "API_KEY=cross-stack\nDB_URL=postgres://prod\n",
+  "serialized": "SEALED-ENV-V1 MODE=enterprise\nKDF=scrypt\nKDF-PARAMS=N=32768,r=8,p=1\nSALT=HbUswGZUYe0wJPOl/laKZA==\nNONCE=sWG9H4S6gFVZGMhC\nTOTP-VERIFIER=3TplXPfj9mr5FW6W9rPd7dLD0oySz6DrV4sIOkQMFXU=\nCHALLENGE-BIND=disabled\nAAD-DIGEST=/KeH5kx+ATTCwcxrnb4v8nipXGquLLJ40Lbg5VEr4Iw=\nHMAC=4DoYCUkuTelZK5IpZvxYiyouC+WFWMWYCEfCBvs31JE=\nCREATED=2026-05-06T19:41:58.523Z\n\nTe+zs5jWvu96nFX94Zl5nLEsYBzlWyuDfW3WBC6ezE+q4tPpfkoT6K/MlFkWac+Zydv3YSlLXERi87s="
+}

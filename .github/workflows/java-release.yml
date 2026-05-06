@@ -46,8 +46,9 @@ jobs:
           npm ci
           npm run build
           mkdir -p ../test-vectors/v1
-          node scripts/gen-test-vector.mjs basic > ../test-vectors/v1/node-basic.json
-          node scripts/gen-test-vector.mjs team  > ../test-vectors/v1/node-team.json
+          node scripts/gen-test-vector.mjs basic      > ../test-vectors/v1/node-basic.json
+          node scripts/gen-test-vector.mjs team       > ../test-vectors/v1/node-team.json
+          node scripts/gen-test-vector.mjs enterprise > ../test-vectors/v1/node-enterprise.json
 
       - name: Verify (test + cross-stack interop)
         working-directory: java
