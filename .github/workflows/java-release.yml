@@ -41,6 +41,7 @@ jobs:
 
       - name: Regenerate cross-stack vectors
         working-directory: node
+        shell: bash
         run: |
           npm ci
           npm run build

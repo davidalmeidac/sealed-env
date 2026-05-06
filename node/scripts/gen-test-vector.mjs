@@ -9,7 +9,7 @@
  * Usage:
  *   node scripts/gen-test-vector.mjs [basic|team|enterprise] > vector.json
  */
-import { seal } from '../dist/src/index.js';
+import { seal } from '../dist/index.js';
 import { randomBytes } from 'node:crypto';
 
 const mode = (process.argv[2] || 'basic').toLowerCase();

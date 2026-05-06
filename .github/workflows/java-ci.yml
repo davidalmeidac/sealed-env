@@ -49,6 +49,9 @@ jobs:
 
       - name: Build Node side (regenerate test vectors)
         working-directory: node
+        # Force bash on Windows runners — default is PowerShell, where
+        # `mkdir -p` errors on an existing dir and shell semantics differ.
+        shell: bash
         run: |
           npm ci
           npm run build
