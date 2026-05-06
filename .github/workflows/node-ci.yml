@@ -1,0 +1,53 @@
+name: Node CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'node/**'
+      - 'SPEC.md'
+      - '.github/workflows/node-ci.yml'
+  pull_request:
+    paths:
+      - 'node/**'
+      - 'SPEC.md'
+      - '.github/workflows/node-ci.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: node
+
+jobs:
+  test:
+    name: Test on Node ${{ matrix.node }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: node/package-lock.json
+
+      - name: Install
+        run: npm ci || npm install
+
+      - name: Typecheck (lint)
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Compile tests
+        run: npx tsc -p tsconfig.test.json
+
+      - name: Run tests
+        run: node --test --test-reporter=spec dist/tests/**/*.test.js

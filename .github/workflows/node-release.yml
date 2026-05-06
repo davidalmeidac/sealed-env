@@ -1,0 +1,76 @@
+name: Node Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. node-v0.1.0-alpha.1)'
+        required: true
+
+defaults:
+  run:
+    working-directory: node
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write          # for npm provenance
+      contents: read
+    environment: npm-publish
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: node/package-lock.json
+          registry-url: https://registry.npmjs.org
+
+      - name: Set version from release tag
+        if: github.event_name == 'release'
+        run: |
+          # release.tag_name format: node-v0.1.0-alpha.1 → 0.1.0-alpha.1
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#node-v}"
+          echo "Setting version to $VERSION"
+          npm version --no-git-tag-version "$VERSION"
+
+      - name: Set version from manual input
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          TAG="${{ inputs.tag }}"
+          VERSION="${TAG#node-v}"
+          echo "Setting version to $VERSION"
+          npm version --no-git-tag-version "$VERSION"
+
+      - name: Install
+        run: npm ci || npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Compile + run tests
+        run: |
+          npx tsc -p tsconfig.test.json
+          node --test --test-reporter=spec dist/tests/**/*.test.js
+
+      - name: Determine npm dist-tag
+        id: tag
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$VERSION" == *-alpha* ]] || [[ "$VERSION" == *-beta* ]] || [[ "$VERSION" == *-rc* ]]; then
+            echo "dist_tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm with provenance
+        run: npm publish --provenance --access public --tag ${{ steps.tag.outputs.dist_tag }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

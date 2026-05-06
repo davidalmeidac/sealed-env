@@ -1,0 +1,30 @@
+# Build artifacts
+node/dist/
+node/*.tsbuildinfo
+java/target/
+
+# Dependencies
+node_modules/
+
+# Maven wrapper artifacts (we ship them, but binary jar is generated)
+.mvn/wrapper/maven-wrapper.jar
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Test artifacts
+coverage/
+.nyc_output/
+
+# Local secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+maven-secrets/
+.maven-secrets/

@@ -1,0 +1,80 @@
+{
+  "name": "sealed-env",
+  "version": "0.1.0",
+  "description": "Encrypted .env files with optional TOTP unsealing for production deploys. Cross-stack with the Java port. Zero dependencies.",
+  "keywords": [
+    "dotenv",
+    "env",
+    "secrets",
+    "encryption",
+    "aes-gcm",
+    "argon2",
+    "totp",
+    "2fa",
+    "supply-chain-security",
+    "sealed-env",
+    "cli",
+    "cross-platform",
+    "spring-boot",
+    "vault"
+  ],
+  "homepage": "https://github.com/davidalmeidac/sealed-env",
+  "bugs": {
+    "url": "https://github.com/davidalmeidac/sealed-env/issues"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "David Almeida",
+    "email": "david.almeida@cun.edu.co",
+    "url": "https://github.com/davidalmeidac"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "sealed-env": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "SPEC.md",
+    "THREAT_MODEL.md"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "node --test --experimental-test-coverage --test-reporter=spec dist/tests/**/*.test.js",
+    "test:build": "npm run build && npm test",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build && npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidalmeidac/sealed-env.git",
+    "directory": "node"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
