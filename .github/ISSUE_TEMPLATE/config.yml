@@ -1,0 +1,23 @@
+# Disable the blank issue option — every issue must use a template so we
+# get the context needed to act on it.
+blank_issues_enabled: false
+
+contact_links:
+  - name: 🛡️ Report a security vulnerability
+    url: https://github.com/davidalmeidac/sealed-env/security/advisories/new
+    about: |
+      DO NOT file a public issue for security bugs. Use GitHub's private
+      Security Advisory flow (or email davidalmeidac@proton.me as fallback).
+      See SECURITY.md for the full policy.
+
+  - name: 💬 Ask a question or discuss an idea
+    url: https://github.com/davidalmeidac/sealed-env/discussions
+    about: |
+      For open-ended questions, design discussions, "is this the right tool
+      for X" — please use Discussions instead of an issue.
+
+  - name: 📖 Read the documentation
+    url: https://github.com/davidalmeidac/sealed-env/tree/main/docs
+    about: |
+      Many common questions are already answered in /docs and on the landing
+      site. Check there before filing an issue.
