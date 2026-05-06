@@ -10,7 +10,7 @@ A cross-stack, zero-trust secret management library for **Node.js** and **Java/S
 with optional TOTP-based unsealing for production deploys.
 
 [![npm version](https://img.shields.io/npm/v/sealed-env?style=flat-square&color=1a1612&labelColor=c4471f&logo=npm&logoColor=f4ede0)](https://www.npmjs.com/package/sealed-env)
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.davidalmeidac/sealed-env?style=flat-square&color=1a1612&labelColor=c4471f&logo=apachemaven&logoColor=f4ede0)](https://central.sonatype.com/artifact/io.github.davidalmeidac/sealed-env)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.davidalmeidac/sealed-env-core?style=flat-square&color=1a1612&labelColor=c4471f&logo=apachemaven&logoColor=f4ede0)](https://central.sonatype.com/artifact/io.github.davidalmeidac/sealed-env)
 [![License](https://img.shields.io/badge/license-MIT-1a1612?style=flat-square&labelColor=c4471f)](LICENSE)
 [![Threat model](https://img.shields.io/badge/threat--model-public-1a1612?style=flat-square&labelColor=c4471f)](THREAT_MODEL.md)
 
