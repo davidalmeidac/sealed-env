@@ -1,6 +1,8 @@
 <div align="center">
 
-# sealed-env
+<img src="./assets/logo-lockup.svg" alt="sealed-env" width="640" />
+
+<br/>
 
 **Stop committing `.env` files. Stop hoping a leak doesn't happen.**
 

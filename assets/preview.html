@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sealed-env · Roman sigillum direction</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,30..100;1,9..144,300..900,30..100&family=Cinzel:wght@400..900&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #f1ebe0;
+    font-family: 'DM Sans', sans-serif;
+    color: #1a1612;
+    padding: 56px 32px;
+    min-height: 100vh;
+  }
+  .container { max-width: 1280px; margin: 0 auto; }
+
+  .head-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #4a3f35;
+    margin-bottom: 6px;
+  }
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 400;
+    color: #1a1612;
+    margin-bottom: 12px;
+    font-size: 52px;
+    letter-spacing: -2px;
+    line-height: 1.05;
+  }
+  h1 b {
+    color: #c4471f;
+    font-weight: 500;
+  }
+  .sub {
+    color: #4a3f35;
+    margin-bottom: 56px;
+    font-size: 16px;
+    max-width: 760px;
+    line-height: 1.6;
+  }
+  .sub b { color: #c4471f; font-weight: 500; }
+
+  hr.rule {
+    border: none;
+    border-top: 1px solid #1a1612;
+    margin: 64px 0 40px;
+  }
+  hr.rule.thin {
+    border-top: 1px solid rgba(26, 22, 18, 0.2);
+    margin: 32px 0;
+  }
+
+  .section-eye {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #c4471f;
+    margin-bottom: 8px;
+  }
+  h2.section {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 500;
+    color: #1a1612;
+    font-size: 32px;
+    margin-bottom: 32px;
+    letter-spacing: -1px;
+  }
+
+  /* ─── HERO STAGE ──────────────────────────────────────────── */
+  .hero-stage {
+    background: #ffffff;
+    border: 1px solid rgba(26, 22, 18, 0.15);
+    padding: 80px 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .hero-stage img { max-width: 100%; height: auto; }
+
+  .stage-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .panel {
+    background: #ffffff;
+    border: 1px solid rgba(26, 22, 18, 0.15);
+    padding: 56px 48px;
+  }
+  .panel.dark { background: #1a1612; border-color: #1a1612; }
+  .panel-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #4a3f35;
+    margin-bottom: 24px;
+  }
+  .panel.dark .panel-label { color: #8a8074; }
+
+  .panel-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 240px;
+  }
+
+  /* ─── SIZE PROGRESSION ───────────────────────────────────── */
+  .sizes {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .sizes > div {
+    text-align: center;
+  }
+  .sizes .size-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #8a8074;
+    margin-top: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* ─── CONTEXT ─────────────────────────────────────────────── */
+  .context-mock {
+    background: #fafafa;
+    border: 1px solid rgba(26, 22, 18, 0.15);
+    padding: 24px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+  }
+  .context-mock .mock-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid rgba(26, 22, 18, 0.1);
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+  }
+  .context-mock .mock-head img { width: 40px; height: 40px; }
+  .context-mock .mock-head .title {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 18px;
+  }
+  .context-mock .mock-head .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #4a3f35;
+    margin-left: auto;
+  }
+  .context-mock .mock-body {
+    color: #4a3f35;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* ─── VERDICT ─────────────────────────────────────────────── */
+  .verdict {
+    background: #1a1612;
+    color: #f4ede0;
+    padding: 40px 44px;
+    margin-top: 48px;
+    line-height: 1.7;
+  }
+  .verdict h3 {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 32px;
+    margin-bottom: 24px;
+    color: #f4ede0;
+  }
+  .verdict h3 em { color: #c4471f; }
+  .verdict code {
+    font-family: 'JetBrains Mono', monospace;
+    color: #d4956b;
+    font-size: 13px;
+  }
+  .verdict ul { padding-left: 20px; }
+  .verdict li { margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="head-eyebrow">sealed-env · iteration 03 · Roman sigillum</div>
+  <h1>The <b>Sigillum</b> direction</h1>
+  <p class="sub">
+    Romans sealed important documents with hot wax and pressed their <b>signet ring</b>
+    into it — the first technology of tamper-evidence and authenticated identity.
+    That is, almost word-for-word, what <b>sealed-env</b> does in code.
+    <br><br>
+    The mark below is a tipographic interpretation — flat shapes, lapidary
+    Roman caps, no AI-stock gradients. Three views: hero lockup, sigillum solo,
+    and the wordmark alone.
+  </p>
+
+  <!-- ─── HERO LOCKUP ─────────────────────────────────────────── -->
+  <hr class="rule">
+  <div class="section-eye">— 01 · primary lockup</div>
+  <h2 class="section">Sigillum + wordmark + tagline</h2>
+
+  <div class="hero-stage">
+    <img src="logo-lockup.svg" alt="sealed-env primary lockup" style="max-width: 640px;" />
+  </div>
+
+  <p class="sub" style="margin-bottom: 0; max-width: 720px;">
+    Use this for: <b>repository README header, npm package page, social card,
+    LinkedIn announcement post.</b> The seal-bar between "sealed" and "env"
+    replaces the hyphen — quiet narrative continuity with the sigillum.
+  </p>
+
+  <!-- ─── SIGILLUM SOLO ─────────────────────────────────────── -->
+  <hr class="rule">
+  <div class="section-eye">— 02 · sigillum mark, solo</div>
+  <h2 class="section">Two depths of detail</h2>
+
+  <div class="stage-grid">
+
+    <!-- Detailed sigillum -->
+    <div class="panel">
+      <div class="panel-label">Detailed · with curved legend</div>
+      <div class="panel-stage">
+        <img src="logo-sigillum.svg" width="220" height="220" alt="sigillum detailed" />
+      </div>
+      <hr class="rule thin" />
+      <div class="panel-label" style="margin-bottom: 16px;">Use case: print, posters, social cards (≥ 200px)</div>
+      <div class="sizes">
+        <div>
+          <img src="logo-sigillum.svg" width="128" height="128" />
+          <div class="size-label">128 px</div>
+        </div>
+        <div>
+          <img src="logo-sigillum.svg" width="80" height="80" />
+          <div class="size-label">80 px</div>
+        </div>
+        <div>
+          <img src="logo-sigillum.svg" width="48" height="48" />
+          <div class="size-label">48 px (legend illegible)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mono sigillum -->
+    <div class="panel">
+      <div class="panel-label">Minimal · favicon-ready</div>
+      <div class="panel-stage">
+        <img src="logo-sigillum-mono.svg" width="220" height="220" alt="sigillum mono" />
+      </div>
+      <hr class="rule thin" />
+      <div class="panel-label" style="margin-bottom: 16px;">Use case: favicon, npm avatar, GitHub org icon (any size)</div>
+      <div class="sizes">
+        <div>
+          <img src="logo-sigillum-mono.svg" width="128" height="128" />
+          <div class="size-label">128 px</div>
+        </div>
+        <div>
+          <img src="logo-sigillum-mono.svg" width="48" height="48" />
+          <div class="size-label">48 px</div>
+        </div>
+        <div>
+          <img src="logo-sigillum-mono.svg" width="32" height="32" />
+          <div class="size-label">32 px</div>
+        </div>
+        <div>
+          <img src="logo-sigillum-mono.svg" width="16" height="16" />
+          <div class="size-label">16 px (favicon)</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ─── WORDMARK ───────────────────────────────────────────── -->
+  <hr class="rule">
+  <div class="section-eye">— 03 · wordmark only</div>
+  <h2 class="section">When the sigillum doesn't fit</h2>
+
+  <div class="panel">
+    <div class="panel-label">Use case: text-heavy contexts, footer signatures, badges</div>
+    <div class="panel-stage" style="min-height: 160px;">
+      <img src="logo-type.svg" width="480" alt="wordmark" />
+    </div>
+    <hr class="rule thin" />
+    <div class="sizes" style="margin-top: 16px;">
+      <div>
+        <img src="logo-type.svg" width="320" />
+        <div class="size-label">320 wide</div>
+      </div>
+      <div>
+        <img src="logo-type.svg" width="200" />
+        <div class="size-label">200 wide</div>
+      </div>
+      <div>
+        <img src="logo-type.svg" width="120" />
+        <div class="size-label">120 wide</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── IN CONTEXT ─────────────────────────────────────────── -->
+  <hr class="rule">
+  <div class="section-eye">— 04 · in context</div>
+  <h2 class="section">How it lives in the wild</h2>
+
+  <!-- npm card mock -->
+  <div class="context-mock">
+    <div class="mock-head">
+      <img src="logo-sigillum-mono.svg" />
+      <div class="title">sealed-env</div>
+      <div class="meta">v0.1.0-alpha.1 · MIT · 0 deps</div>
+    </div>
+    <div class="mock-body">
+      Encrypted .env files with optional TOTP unsealing for production deploys.
+      Cross-stack with the Java port. Zero dependencies.
+    </div>
+  </div>
+
+  <!-- README mock -->
+  <div class="context-mock" style="background: #fff;">
+    <div style="text-align: center; padding: 24px 0;">
+      <img src="logo-lockup.svg" width="520" />
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #4a3f35; margin-top: 16px; letter-spacing: 1px;">
+        npm install sealed-env
+      </div>
+    </div>
+  </div>
+
+  <!-- LinkedIn post mock -->
+  <div class="context-mock">
+    <div class="mock-head">
+      <img src="logo-sigillum.svg" />
+      <div>
+        <div class="title">Just shipped sealed-env</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8a8074;">davidalmeidac · 2h</div>
+      </div>
+    </div>
+    <div class="mock-body">
+      Tamper-evident encrypted .env files for Node and Java/Spring Boot.
+      Built around the Roman sigillum: encryption at rest, signed identity,
+      tamper detection at-a-glance.
+    </div>
+  </div>
+
+  <!-- ─── VERDICT ────────────────────────────────────────────── -->
+  <div class="verdict">
+    <h3>The <em>system</em>, not just the logo</h3>
+    <p>Three pieces, used in three different places:</p>
+    <ul>
+      <li><code>logo-lockup.svg</code> → headers, social cards, big moments</li>
+      <li><code>logo-sigillum-mono.svg</code> → favicon, npm avatar, GitHub org</li>
+      <li><code>logo-type.svg</code> → footers, signatures, places without space for the sigillum</li>
+    </ul>
+    <p>
+      All three share the same DNA: cream paper (#f1ebe0), terracotta wax (#c4471f),
+      ink (#1a1612). Italic Fraunces for the wordmark, Cinzel/Trajan for the
+      lapidary caps in the sigillum. <strong>Same brand as your "El Almanaque"
+      LinkedIn banner.</strong>
+    </p>
+    <br>
+    <p style="border-top: 1px solid #3a322a; padding-top: 16px;">
+      Tell me what to refine: tracking on the wordmark, sigillum proportions,
+      year text wording, color depth on the wax, anything. Or pick one and I
+      generate PNGs and integrate it into the npm package + README.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

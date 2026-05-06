@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 220" width="720" height="220" role="img" aria-label="sealed-env logo lockup">
+  <!--
+    sealed-env · primary lockup v3
+    Sigillum (left) + italic wordmark (right) + tagline (under).
+    Sealing-wax red, olive sprigs, Latin motto in the legend.
+  -->
+
+  <defs>
+    <filter id="paperGrainLk" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.8" numOctaves="2" seed="13"/>
+      <feColorMatrix values="0 0 0 0 0.10
+                              0 0 0 0 0.08
+                              0 0 0 0 0.07
+                              0 0 0 0.07 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <filter id="waxNoiseLk" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="5"/>
+      <feColorMatrix values="0 0 0 0 0.30
+                              0 0 0 0 0.05
+                              0 0 0 0 0.04
+                              0 0 0 0.16 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <!-- Smaller hand-irregular wax disk for the lockup -->
+    <path id="waxLk"
+      d="M 80 8
+         C 100 7, 119 14, 134 27
+         C 150 40, 159 58, 161 78
+         C 163 99, 156 119, 142 134
+         C 128 149, 109 156, 89 156
+         C 69 156, 50 149, 35 135
+         C 21 120, 14 100, 16 80
+         C 18 60, 28 41, 44 28
+         C 56 18, 70 12, 80 8 Z"
+      fill="none"/>
+
+    <path id="creamLk"
+      d="M 80 22
+         C 96 22, 112 28, 124 40
+         C 137 53, 143 69, 142 87
+         C 141 105, 132 121, 117 132
+         C 102 144, 84 148, 67 144
+         C 50 141, 35 131, 26 116
+         C 18 101, 17 84, 24 68
+         C 31 53, 44 41, 60 35
+         C 68 32, 75 23, 80 22 Z"
+      fill="none"/>
+  </defs>
+
+  <!-- ── SIGILLUM (left) ───────────────────────────────────────── -->
+  <g transform="translate(0, 30)">
+    <!-- wax disk -->
+    <use href="#waxLk" fill="#A8201A"/>
+    <g filter="url(#waxNoiseLk)" opacity="0.55">
+      <use href="#waxLk" fill="#A8201A"/>
+    </g>
+
+    <!-- micro-cracks in wax -->
+    <g stroke="#7A1411" stroke-width="0.4" stroke-linecap="round" opacity="0.4" fill="none">
+      <path d="M 28 56 q 4 3 6 8"/>
+      <path d="M 138 70 q -3 4 -1 9"/>
+      <path d="M 122 132 q -3 -1 -7 -1"/>
+    </g>
+
+    <!-- subtle drip below seal -->
+    <path d="M 78 154
+             C 76 161, 76 167, 78 171
+             C 80 175, 82 175, 84 171
+             C 86 167, 86 161, 84 154 Z"
+          fill="#A8201A" opacity="0.85"/>
+
+    <!-- cream field -->
+    <use href="#creamLk" fill="#f1ebe0"/>
+    <g filter="url(#paperGrainLk)" opacity="0.7">
+      <use href="#creamLk" fill="#1a1612"/>
+    </g>
+    <use href="#creamLk" fill="none" stroke="#1a1612" stroke-width="0.6" opacity="0.45"/>
+
+    <!-- olive sprigs (very small) -->
+    <g fill="#1a1612" opacity="0.55">
+      <ellipse cx="34" cy="80" rx="4" ry="1.7" transform="rotate(-15 34 80)"/>
+      <ellipse cx="34" cy="86" rx="4" ry="1.7" transform="rotate(15 34 86)"/>
+      <ellipse cx="126" cy="80" rx="4" ry="1.7" transform="rotate(15 126 80)"/>
+      <ellipse cx="126" cy="86" rx="4" ry="1.7" transform="rotate(-15 126 86)"/>
+    </g>
+
+    <!-- monogram SE -->
+    <text x="80" y="100"
+          font-family="'Cinzel', 'Trajan Pro', 'IM Fell English SC', serif"
+          font-size="58"
+          font-weight="700"
+          fill="#1a1612"
+          text-anchor="middle"
+          letter-spacing="-2">SE</text>
+
+    <!-- centered interpunct -->
+    <circle cx="80" cy="118" r="1.4" fill="#A8201A"/>
+  </g>
+
+  <!-- ── WORDMARK (right) ──────────────────────────────────────── -->
+  <text x="190" y="115"
+        font-family="'Fraunces', 'Instrument Serif', Georgia, serif"
+        font-size="72"
+        font-weight="500"
+        font-style="italic"
+        fill="#1a1612"
+        letter-spacing="-2">sealed</text>
+
+  <!-- the seal-bar (replaces hyphen) -->
+  <rect x="370" y="90" width="22" height="6" fill="#A8201A"/>
+
+  <text x="400" y="115"
+        font-family="'Fraunces', 'Instrument Serif', Georgia, serif"
+        font-size="72"
+        font-weight="500"
+        font-style="italic"
+        fill="#1a1612"
+        letter-spacing="-2">env</text>
+
+  <!-- tagline -->
+  <text x="190" y="155"
+        font-family="'JetBrains Mono', 'Courier New', monospace"
+        font-size="11"
+        fill="#1a1612"
+        opacity="0.6"
+        letter-spacing="2">CVSTOS · ARCANI · ENCRYPT AT REST · WIPE ON READ</text>
+</svg>

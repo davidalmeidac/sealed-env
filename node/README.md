@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/davidalmeidac/sealed-env/main/assets/logo-sigillum-mono.svg" alt="sealed-env" width="160" />
+</p>
+
 # sealed-env
 
 > Encrypted `.env` files with optional TOTP unsealing for production deploys.
