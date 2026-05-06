@@ -1,18 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 280" width="256" height="280" role="img" aria-label="sealed-env Roman sigillum">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 304" width="280" height="304" role="img" aria-label="sealed-env Roman sigillum">
   <!--
-    sealed-env · Roman sigillum (refined v3 — rusticated)
-    Changes over v2:
-      • Sealing-wax red (#A8201A) replaces terracotta
-      • Two olive sprigs flank the monogram (Roman authenticity)
-      • Latin motto: "SEALED · ENV · CVSTOS · ARCANI · MMXXVI" (V for U, Roman style)
-      • Stronger paper grain — more pressed-document feel
-      • Thin micro-cracks in the wax (suggests aged seal)
-      • Slight wax drip at the bottom — captured the moment of pressing
-      • Two depth tones for the wax (still flat, no radial gradient)
+    sealed-env · Roman sigillum (refined v3.1, self-contained)
+    Cream paper backdrop included so the seal renders on any page background.
   -->
 
   <defs>
-    <!-- Stronger paper grain than v2 -->
     <filter id="paperGrain" x="-5%" y="-5%" width="110%" height="110%">
       <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="7"/>
       <feColorMatrix values="0 0 0 0 0.10
@@ -22,7 +14,15 @@
       <feComposite in2="SourceGraphic" operator="in"/>
     </filter>
 
-    <!-- Wax surface noise — gives the impression of aged solidified wax -->
+    <filter id="paperBg" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="21"/>
+      <feColorMatrix values="0 0 0 0 0.06
+                              0 0 0 0 0.04
+                              0 0 0 0 0.02
+                              0 0 0 0.05 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+
     <filter id="waxNoise" x="-5%" y="-5%" width="110%" height="110%">
       <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="3"/>
       <feColorMatrix values="0 0 0 0 0.30
@@ -32,78 +32,69 @@
       <feComposite in2="SourceGraphic" operator="in"/>
     </filter>
 
-    <!-- Hand-irregular wax disk perimeter -->
     <path id="waxOutline"
-      d="M 128 8
-         C 154 7, 178 14, 199 28
-         C 222 42, 240 64, 247 92
-         C 252 118, 250 144, 240 168
-         C 230 191, 213 211, 192 224
-         C 169 238, 144 244, 119 242
-         C 92 240, 68 230, 49 213
-         C 30 196, 17 173, 11 147
-         C 6 121, 9 95, 21 71
-         C 33 47, 53 28, 78 17
-         C 94 10, 111 7, 128 8 Z"
+      d="M 140 20
+         C 166 19, 190 26, 211 40
+         C 234 54, 252 76, 259 104
+         C 264 130, 262 156, 252 180
+         C 242 203, 225 223, 204 236
+         C 181 250, 156 256, 131 254
+         C 104 252, 80 242, 61 225
+         C 42 208, 29 185, 23 159
+         C 18 133, 21 107, 33 83
+         C 45 59, 65 40, 90 29
+         C 106 22, 123 19, 140 20 Z"
       fill="none"/>
 
-    <!-- Cream field (slightly imperfect, slightly off-centered) -->
     <path id="creamField"
-      d="M 128 32
-         C 152 33, 175 41, 192 56
-         C 209 71, 219 92, 222 114
-         C 224 137, 219 159, 207 178
-         C 195 196, 178 210, 158 217
-         C 137 224, 116 224, 96 217
-         C 75 210, 58 197, 46 179
-         C 33 161, 28 139, 30 117
-         C 32 96, 41 75, 57 60
-         C 73 45, 95 36, 117 33
-         C 121 32, 124 32, 128 32 Z"
+      d="M 140 44
+         C 164 45, 187 53, 204 68
+         C 221 83, 231 104, 234 126
+         C 236 149, 231 171, 219 190
+         C 207 208, 190 222, 170 229
+         C 149 236, 128 236, 108 229
+         C 87 222, 70 209, 58 191
+         C 45 173, 40 151, 42 129
+         C 44 108, 53 87, 69 72
+         C 85 57, 107 48, 129 45
+         C 133 44, 136 44, 140 44 Z"
       fill="none"/>
 
-    <!-- Curved-text path for the legend -->
     <path id="legendArc"
-      d="M 128 128 m -68 0 a 68 68 0 1 1 136 0 a 68 68 0 1 1 -136 0"
-      fill="none"/>
-
-    <!-- One olive leaf — used twice (mirrored) -->
-    <path id="oliveLeaf"
-      d="M 0 0
-         q 8 -4 18 -2
-         q 12 2 16 8
-         q -4 4 -16 4
-         q -10 0 -18 -2
-         q -2 -4 0 -8 Z"
+      d="M 140 140 m -68 0 a 68 68 0 1 1 136 0 a 68 68 0 1 1 -136 0"
       fill="none"/>
   </defs>
 
-  <!-- ── 1. Wax disk — sealing-wax red ─────────────────────────── -->
-  <use href="#waxOutline" fill="#A8201A"/>
+  <!-- ── 0. Cream paper backdrop (whole canvas) ─────────────────── -->
+  <rect x="0" y="0" width="280" height="304" fill="#f1ebe0"/>
+  <g filter="url(#paperBg)" opacity="0.6">
+    <rect x="0" y="0" width="280" height="304" fill="#1a1612"/>
+  </g>
 
-  <!-- 1b. Wax surface texture (the "aged sealing wax" character) -->
+  <!-- ── 1. Wax disk (sealing-wax red) ─────────────────────────── -->
+  <use href="#waxOutline" fill="#A8201A"/>
   <g filter="url(#waxNoise)" opacity="0.55">
     <use href="#waxOutline" fill="#A8201A"/>
   </g>
 
-  <!-- 1c. Subtle micro-cracks (very light, sparse) -->
+  <!-- micro-cracks in the wax -->
   <g stroke="#7A1411" stroke-width="0.5" stroke-linecap="round" opacity="0.4" fill="none">
-    <path d="M 38 70 q 6 4 10 12"/>
-    <path d="M 220 102 q -4 6 -2 14"/>
-    <path d="M 198 196 q -4 -2 -10 -2"/>
-    <path d="M 64 200 q 4 -4 12 -2"/>
+    <path d="M 50 82 q 6 4 10 12"/>
+    <path d="M 232 114 q -4 6 -2 14"/>
+    <path d="M 210 208 q -4 -2 -10 -2"/>
+    <path d="M 76 212 q 4 -4 12 -2"/>
   </g>
 
-  <!-- ── 2. Subtle wax-drip below the seal (organic, irregular) ── -->
-  <path d="M 124 240
-           C 122 248, 122 256, 124 262
-           C 126 268, 130 270, 132 264
-           C 134 258, 134 250, 132 240 Z"
+  <!-- ── 2. Wax drip below the seal ─────────────────────────────── -->
+  <path d="M 136 252
+           C 134 260, 134 268, 136 274
+           C 138 280, 142 282, 144 276
+           C 146 270, 146 262, 144 252 Z"
         fill="#A8201A" opacity="0.85"/>
-  <path d="M 124 240
-           C 122 248, 122 256, 124 262
-           C 126 268, 130 270, 132 264
-           C 134 258, 134 250, 132 240 Z"
+  <path d="M 136 252
+           C 134 260, 134 268, 136 274
+           C 138 280, 142 282, 144 276
+           C 146 270, 146 262, 144 252 Z"
         fill="#7A1411" opacity="0.3"/>
 
   <!-- ── 3. Cream inner field with paper grain ────────────────── -->
@@ -114,7 +105,7 @@
 
   <!-- ── 4. Engraved rules ────────────────────────────────────── -->
   <use href="#creamField" fill="none" stroke="#1a1612" stroke-width="0.7" opacity="0.5"/>
-  <circle cx="128" cy="128" r="86" fill="none" stroke="#1a1612" stroke-width="0.5" opacity="0.3"/>
+  <circle cx="140" cy="140" r="86" fill="none" stroke="#1a1612" stroke-width="0.5" opacity="0.3"/>
 
   <!-- ── 5. Curved legend ─────────────────────────────────────── -->
   <text font-family="'Cinzel', 'Trajan Pro', 'IM Fell English SC', serif"
@@ -128,18 +119,14 @@
   </text>
 
   <!-- ── 6. Olive sprigs flanking the monogram ────────────────── -->
-  <!-- Left sprig -->
-  <g transform="translate(78, 138)" fill="#1a1612" opacity="0.7">
-    <!-- stem -->
+  <g transform="translate(90, 150)" fill="#1a1612" opacity="0.7">
     <line x1="0" y1="0" x2="14" y2="0" stroke="#1a1612" stroke-width="1" opacity="0.7"/>
-    <!-- leaves -->
     <ellipse cx="3" cy="-3" rx="5" ry="2" transform="rotate(-25 3 -3)"/>
     <ellipse cx="9" cy="-4" rx="5" ry="2" transform="rotate(-15 9 -4)"/>
     <ellipse cx="3" cy="3" rx="5" ry="2" transform="rotate(25 3 3)"/>
     <ellipse cx="9" cy="4" rx="5" ry="2" transform="rotate(15 9 4)"/>
   </g>
-  <!-- Right sprig (mirrored) -->
-  <g transform="translate(178, 138) scale(-1, 1)" fill="#1a1612" opacity="0.7">
+  <g transform="translate(190, 150) scale(-1, 1)" fill="#1a1612" opacity="0.7">
     <line x1="0" y1="0" x2="14" y2="0" stroke="#1a1612" stroke-width="1" opacity="0.7"/>
     <ellipse cx="3" cy="-3" rx="5" ry="2" transform="rotate(-25 3 -3)"/>
     <ellipse cx="9" cy="-4" rx="5" ry="2" transform="rotate(-15 9 -4)"/>
@@ -148,7 +135,7 @@
   </g>
 
   <!-- ── 7. Central monogram: SE in lapidary Roman caps ──────── -->
-  <text x="128" y="148"
+  <text x="140" y="160"
         font-family="'Cinzel', 'Trajan Pro', 'IM Fell English SC', serif"
         font-size="56"
         font-weight="700"
@@ -156,12 +143,12 @@
         text-anchor="middle"
         letter-spacing="-1">SE</text>
 
-  <!-- ── 8. Roman interpunct (centered ornamental dot) ────────── -->
-  <circle cx="128" cy="178" r="2" fill="#A8201A"/>
+  <!-- ── 8. Centered Roman interpunct ──────────────────────────── -->
+  <circle cx="140" cy="190" r="2" fill="#A8201A"/>
 
-  <!-- ── 9. Three small "metal-press" dots — top of cream field ── -->
-  <circle cx="128" cy="62" r="1.5" fill="#1a1612" opacity="0.6"/>
-  <circle cx="118" cy="58" r="1.2" fill="#1a1612" opacity="0.4"/>
-  <circle cx="138" cy="58" r="1.2" fill="#1a1612" opacity="0.4"/>
+  <!-- ── 9. Three small "metal-press" dots top of cream field ─── -->
+  <circle cx="140" cy="74" r="1.5" fill="#1a1612" opacity="0.6"/>
+  <circle cx="130" cy="70" r="1.2" fill="#1a1612" opacity="0.4"/>
+  <circle cx="150" cy="70" r="1.2" fill="#1a1612" opacity="0.4"/>
 
 </svg>
