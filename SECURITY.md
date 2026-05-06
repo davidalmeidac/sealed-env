@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 If you discover a security vulnerability in `sealed-env`, **please do not open a
-public issue**. Email **david.almeida@cun.edu.co** with:
+public issue**. Email **davidalmeidac@proton.me** with:
 
 - A description of the vulnerability
 - Steps to reproduce
