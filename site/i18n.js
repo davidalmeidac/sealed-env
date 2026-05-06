@@ -1,36 +1,46 @@
-/* sealed-env · language auto-detect (29 lines, no deps)
+/* sealed-env · language auto-detect (no deps)
+ *
+ * URL resolution comes from the <link rel="alternate" hreflang="..."> tags
+ * already present in the page <head>. This means the script works correctly
+ * regardless of where the site is hosted (root domain, /sealed-env/ project
+ * path, or a future custom domain) — there is no hardcoded base path.
  *
  * Behaviour:
- *   1. If the user has manually chosen a language (saved in localStorage),
- *      respect it forever — never auto-redirect.
- *   2. Otherwise, on first visit only, if the browser's primary language
- *      matches a translation we ship, redirect to it.
- *   3. Each language version of the page has the same script — the user's
- *      manual click on a flag persists their choice via the `?lang=`
- *      param read here.
+ *   1. ?lang=xx in the URL — manual override; persisted to localStorage
+ *      and never overridden by auto-detect afterwards.
+ *   2. localStorage already has a choice — don't auto-detect.
+ *   3. First-time visitor — sniff navigator.language and redirect if a
+ *      matching hreflang exists.
  */
 (function () {
   var STORE_KEY = 'sealed-env:lang';
-  var SUPPORTED = ['en', 'es']; // add 'pt', 'zh', 'ja' as translations land
-  var current = document.documentElement.lang || 'en';
+  var current = (document.documentElement.lang || 'en').slice(0, 2).toLowerCase();
 
-  // 1. Manual override via ?lang=xx (used when clicking a flag)
-  var qs = new URLSearchParams(location.search);
-  var picked = qs.get('lang');
-  if (picked && SUPPORTED.indexOf(picked) !== -1) {
-    try { localStorage.setItem(STORE_KEY, picked); } catch (e) { /* noop */ }
-    if (picked !== current) {
-      location.replace(picked === 'en' ? '/' : '/' + picked + '/');
-      return;
-    }
+  function urlFor(lang) {
+    var link = document.querySelector(
+      'link[rel="alternate"][hreflang="' + lang + '"]'
+    );
+    return link ? link.href : null;
   }
 
-  // 2. Already chose? Don't auto-detect.
+  // 1. Manual override via ?lang=xx
+  var qs = new URLSearchParams(location.search);
+  var picked = qs.get('lang');
+  if (picked) {
+    try { localStorage.setItem(STORE_KEY, picked); } catch (e) { /* noop */ }
+    if (picked !== current) {
+      var override = urlFor(picked);
+      if (override) { location.replace(override); return; }
+    }
+    return; // language already matches — stay
+  }
+
+  // 2. Already chose? Skip auto-detect.
   try { if (localStorage.getItem(STORE_KEY)) return; } catch (e) { return; }
 
-  // 3. First-time visitor — sniff browser language.
+  // 3. First visit — sniff browser language.
   var pref = (navigator.language || 'en').slice(0, 2).toLowerCase();
   if (pref === current) return;
-  if (SUPPORTED.indexOf(pref) === -1) return;
-  location.replace(pref === 'en' ? '/' : '/' + pref + '/');
+  var target = urlFor(pref);
+  if (target) location.replace(target);
 })();
