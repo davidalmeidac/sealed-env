@@ -9,20 +9,32 @@
  * If valid, prints an unseal token bound to the optional --deploy-id.
  *
  * The token is short-lived (default 60 seconds, max 10 minutes).
+ *
+ * Salt source for the derived signing key:
+ *   - Preferred: --file <path>  → salt and KDF params are extracted from
+ *                                 the .env.sealed file. The token will
+ *                                 work with that exact file at decrypt time.
+ *   - Fallback:  --salt <hex>   → manually provided salt (advanced).
+ *   - Last:      no flag        → uses a zero-salt sentinel for legacy use.
+ *                                 NOT recommended for enterprise mode.
  */
 
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 
 import { deriveMasterKey } from '../../core/crypto.js';
 import { SealedEnvError } from '../../core/errors.js';
 import { verifyTotp } from '../../totp/totp.js';
 import { buildUnsealToken } from '../../totp/unsealToken.js';
+import { parseSealedFile } from '../../format/parser.js';
 import { parseFlags } from '../utils/flags.js';
 import { DEFAULT_SCRYPT_PARAMS } from '../../format/constants.js';
 import type { KdfParams } from '../../core/types.js';
 
 export async function unsealCommand(argv: string[]): Promise<void> {
   const { values } = parseFlags(argv, {
+    file: { type: 'string', default: '' },
     totp: { type: 'string', default: '' },
     'deploy-id': { type: 'string', default: '' },
     ttl: { type: 'string', default: '60' },
@@ -45,20 +57,42 @@ export async function unsealCommand(argv: string[]): Promise<void> {
     throw new SealedEnvError('TOKEN_INVALID', 'TOTP code invalid (or expired)');
   }
 
-  // The unseal token is signed with the derived key from masterKey + the
-  // file's salt. For CLI usage we generally don't have access to the file's
-  // salt unless the operator passes it, so we derive against a deterministic
-  // per-CLI salt value: SHA-256("sealed-env:cli:" + masterKey).
-  // This means tokens are bound to (masterKey + this CLI session). For more
-  // strict binding to the actual file, future versions will accept --file.
-  //
-  // Note: the salt parameter to deriveMasterKey is passed plain — scrypt only
-  // requires it to be stable, not random.
+  // Determine salt + KDF params. Priority:
+  //   1. --file: parse the .env.sealed and use its real salt + params.
+  //      Tokens generated this way are interoperable with the file at
+  //      decrypt time (this is the path you want for enterprise mode).
+  //   2. --salt: manually provided salt, scrypt with default params.
+  //   3. neither: zero-salt sentinel (legacy; only OK if the same process
+  //      both signs and verifies the token).
+  const filePath = (values.file as string) || '';
   const saltOpt = (values.salt as string) || '';
-  const salt = saltOpt
-    ? Buffer.from(saltOpt, 'hex')
-    : Buffer.alloc(16, 0); // shared sentinel — SEE FUTURE WORK in SPEC §9
-  const kdfParams: KdfParams = { kind: 'scrypt', params: { ...DEFAULT_SCRYPT_PARAMS } };
+
+  let salt: Buffer;
+  let kdfParams: KdfParams;
+
+  if (filePath) {
+    if (!existsSync(filePath)) {
+      throw new SealedEnvError('CONFIG_ERROR', `file not found: ${filePath}`);
+    }
+    const text = readFileSync(resolve(filePath), 'utf8');
+    const parsed = parseSealedFile(text);
+    salt = parsed.salt;
+    kdfParams = parsed.kdfParams;
+  } else if (saltOpt) {
+    salt = Buffer.from(saltOpt, 'hex');
+    if (salt.length !== 16) {
+      throw new SealedEnvError('CONFIG_ERROR', '--salt must be 16 bytes (32 hex chars)');
+    }
+    kdfParams = { kind: 'scrypt', params: { ...DEFAULT_SCRYPT_PARAMS } };
+  } else {
+    salt = Buffer.alloc(16, 0); // sentinel
+    kdfParams = { kind: 'scrypt', params: { ...DEFAULT_SCRYPT_PARAMS } };
+    process.stderr.write(
+      'warning: no --file or --salt; signing with zero-salt sentinel. ' +
+        'Pass --file <.env.sealed> for tokens that interop with the actual file.\n',
+    );
+  }
+
   const derivedKey = deriveMasterKey(masterKey, salt, kdfParams);
 
   const ttl = Math.min(Math.max(Number(values.ttl) || 60, 5), 600);

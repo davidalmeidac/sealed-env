@@ -65,7 +65,7 @@ function helpCommand(): void {
       '  init [--mode <basic|team|enterprise>] [--dir .]',
       '  encrypt <input.env> [--out .env.sealed] [--mode <basic|team|enterprise>]',
       '  decrypt <file.env.sealed>',
-      '  unseal [--totp <code>] [--deploy-id <sha>] [--ttl 60]',
+      '  unseal --file <.env.sealed> [--totp <code>] [--deploy-id <sha>] [--ttl 60]',
       '  help',
       '',
       'Required environment variables:',

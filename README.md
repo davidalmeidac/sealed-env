@@ -218,18 +218,41 @@ If the master key leaks AFTER the deploy → attacker still needs the operator's
 TOTP. If the TOTP token leaks → useless for the next deploy (different commit).
 ```
 
-## Comparison
+## How it compares
 
-|  | sealed-env | dotenvx | dotenv-vault | jasypt |
-|---|---|---|---|---|
-| Node + Java with shared format | **✓** | ✗ (Node only) | ✗ | ✗ (Java only) |
-| Zero dependencies (Node) | **✓** | ✗ (8+ deps) | ✗ | n/a |
-| TOTP unseal for production | **✓** | ✗ | ✗ | ✗ |
-| Memory wipe after ingestion | **✓** | ✗ | ✗ | ✗ |
-| Heap dump filter (Java) | **✓** | n/a | n/a | ✗ |
-| Public threat model | **✓** | partial | partial | ✗ |
-| Vendor-neutral (no service required) | **✓** | ✓ | ✗ (paid) | ✓ |
-| Free / MIT | **✓** | ✓ | partial | ✓ |
+The honest version. Different tools for different threat models — pick the
+one that matches yours.
+
+|  | **sealed-env** | dotenv | dotenvx | Doppler | HashiCorp Vault | AWS Secrets Manager | jasypt |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Encryption at rest** | ✅ | ❌ plaintext | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Cross-stack (Node + Java)** | ✅ same wire format | n/a | Node only | language-agnostic (HTTP) | language-agnostic (HTTP) | language-agnostic (HTTP) | Java only |
+| **No external service required** | ✅ | ✅ | ✅ | ❌ paid SaaS | ❌ self-hosted server | ❌ AWS | ✅ |
+| **TOTP unseal at deploy time** | ✅ | ❌ | ❌ | ❌ | ⚠️ via plugin | ❌ | ❌ |
+| **Replay protection (deploy-bound tokens)** | ✅ | ❌ | ❌ | ❌ | ⚠️ partial | ❌ | ❌ |
+| **Public threat model** | ✅ | n/a | partial | NDA only | ✅ | ✅ | ❌ |
+| **Zero runtime dependencies (Node)** | ✅ | ✅ | ❌ (8+ deps) | ❌ SDK | ❌ SDK | ❌ SDK | n/a |
+| **Spring Boot autoconfiguration** | ✅ | n/a | n/a | community | community | community | manual |
+| **Memory wipe after key derivation** | ✅ | n/a | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **License** | MIT | MIT | MIT | proprietary | MPL 2.0 | proprietary | Apache 2.0 |
+| **Cost** | free | free | free | $0–$15/user/mo | free / Enterprise $ | $0.40/secret/mo | free |
+
+### When to pick which
+
+- **`dotenv`** — solo dev, dev environment only, never production. Fine.
+- **`dotenvx`** — Node-only project, encryption at rest is enough, you trust your CI keystore. Fine.
+- **`Doppler` / `AWS Secrets Manager`** — you already pay for the platform, comfortable with vendor lock-in, want centralized rotation across many services. Good.
+- **`HashiCorp Vault`** — you have ops capacity to run a Vault cluster, need fine-grained policies, and dynamic secrets (DB credentials per session). Heavy but powerful.
+- **`jasypt`** — Java-only project, encryption at rest is enough, you don't need cross-stack. Fine.
+- **`sealed-env`** — you want **encryption at rest + a hard floor against compromised CI/CD** (TOTP-bound deploys), no external service, and your stack is Node, Java/Spring Boot, or both. The defense ceiling is higher than dotenvx/jasypt; the operational cost is lower than Vault.
+
+### What `sealed-env` is **not**
+
+- Not a centralized secret manager (no rotation API, no audit log, no team policies).
+- Not a substitute for HashiCorp Vault when you need dynamic per-session credentials.
+- Not a fit if you want a SaaS dashboard.
+
+If your team needs the Doppler/Vault feature set, use them. `sealed-env` is the right pick when you want a static, file-based, version-controllable encrypted secret with a higher security floor than `dotenvx`.
 
 ## Documentation
 

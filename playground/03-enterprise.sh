@@ -69,20 +69,11 @@ PY
 echo "    Current TOTP code: $CURRENT_TOTP"
 note "In production, this code comes from your authenticator app on your phone."
 
-# ── 5. Build the unseal token via the CLI's `unseal` command
-# We need to pass the SAME salt used by the file, otherwise the token
-# is signed with a different derived key than the one used at decrypt
-# time. (The CLI default is a zero-salt sentinel; for end-to-end this
-# isn't enough.)
-note "Extracting the salt from the sealed file (so the token derives the same key)..."
-SALT_B64=$(grep '^SALT=' out/enterprise.sealed | cut -d= -f2-)
-SALT_HEX=$(python -c "import base64,sys; print(base64.b64decode(sys.argv[1]).hex())" "$SALT_B64")
-echo "    Salt (hex): $SALT_HEX"
-
 note "Generating unseal token (binds to deploy_id=$DEPLOY_ID, expires in 60 seconds)..."
+note "  --file extracts salt and KDF params from the sealed file automatically."
 TOKEN=$(SEALED_ENV_KEY=$MASTER_KEY \
         SEALED_ENV_TOTP_SECRET=$TOTP_SECRET_B32 \
-        $CLI unseal --totp "$CURRENT_TOTP" --deploy-id "$DEPLOY_ID" --ttl 60 --salt "$SALT_HEX" \
+        $CLI unseal --file out/enterprise.sealed --totp "$CURRENT_TOTP" --deploy-id "$DEPLOY_ID" --ttl 60 \
         | grep -E '^usl_' | head -1)
 
 if [ -z "${TOKEN:-}" ]; then

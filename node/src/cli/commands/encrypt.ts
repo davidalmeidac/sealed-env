@@ -47,8 +47,11 @@ export function encryptCommand(argv: string[]): void {
     ...(totpSecret && { totpSecret }),
   });
 
-  const outPath = (values.out as string) || resolve(`${input}.sealed`);
-  const finalOut = outPath.endsWith('.sealed') ? outPath : `${outPath}.sealed`;
+  // If the user passed --out, respect it as-is (no surprise suffixing).
+  // Otherwise default to "<input>.sealed" so the convention is obvious.
+  const finalOut = values.out
+    ? resolve(values.out as string)
+    : resolve(`${input}.sealed`);
   writeFileSync(finalOut, serialized, { encoding: 'utf8', mode: 0o644 });
 
   process.stdout.write(`✓ Encrypted ${input} → ${finalOut} (mode: ${mode})\n`);
