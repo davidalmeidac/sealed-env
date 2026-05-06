@@ -263,6 +263,7 @@ If your team needs the Doppler/Vault feature set, use them. `sealed-env` is the 
 - 🔑 [Enterprise mode walkthrough](docs/05-enterprise-mode.md) — TOTP + deploy binding
 - 📐 [File format anatomy](docs/06-format-anatomy.md) — what's inside `.env.sealed`
 - 🛠️ [Operational guide](docs/07-operational-guide.md) — for sysadmins, managers, and founders (no code)
+- ☁️ [CI/CD + cloud recipes](docs/08-cicd-recipes.md) — GitHub Actions, GitLab, AWS, GCP, Vercel, Docker, K8s
 - 📋 [Format specification](SPEC.md) — the canonical wire format (v1)
 - 🛡️ [Security policy](SECURITY.md) — how to report vulnerabilities
 

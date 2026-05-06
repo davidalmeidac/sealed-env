@@ -12,6 +12,7 @@ the page you need.
 5. [Enterprise mode](./05-enterprise-mode.md) — TOTP + deploy challenge
 6. [File format anatomy](./06-format-anatomy.md) — what's inside `.env.sealed`
 7. [Operational guide](./07-operational-guide.md) — for sysadmins, managers, and founders (no code)
+8. [CI/CD + cloud recipes](./08-cicd-recipes.md) — GitHub Actions, GitLab, AWS, GCP, Vercel, Docker, Kubernetes…
 
 ## Reference
 
