@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 280" width="280" height="280" role="img" aria-label="sealed-env sigillum mark">
+  <!--
+    sealed-env · sigillum mono v3.1 (favicon-ready, self-contained)
+    Cream paper backdrop included so the seal renders on any background.
+  -->
+
+  <defs>
+    <filter id="paperGrainSm" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="11"/>
+      <feColorMatrix values="0 0 0 0 0.10
+                              0 0 0 0 0.08
+                              0 0 0 0 0.07
+                              0 0 0 0.08 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <filter id="paperBgSm" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="21"/>
+      <feColorMatrix values="0 0 0 0 0.06
+                              0 0 0 0 0.04
+                              0 0 0 0 0.02
+                              0 0 0 0.05 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <filter id="waxNoiseSm" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="3"/>
+      <feColorMatrix values="0 0 0 0 0.30
+                              0 0 0 0 0.05
+                              0 0 0 0 0.04
+                              0 0 0 0.18 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <path id="waxOutlineSm"
+      d="M 140 18
+         C 171 17, 199 26, 221 45
+         C 244 65, 258 93, 262 123
+         C 266 152, 259 181, 242 204
+         C 225 227, 200 243, 172 249
+         C 144 255, 115 250, 90 236
+         C 65 222, 45 200, 33 173
+         C 22 146, 21 117, 31 90
+         C 41 62, 62 39, 90 26
+         C 106 20, 123 17, 140 18 Z"
+      fill="none"/>
+
+    <path id="creamFieldSm"
+      d="M 140 38
+         C 166 39, 191 48, 210 65
+         C 229 83, 240 107, 242 133
+         C 244 159, 236 184, 219 203
+         C 203 223, 180 235, 155 238
+         C 129 242, 103 234, 82 219
+         C 61 203, 46 180, 40 154
+         C 35 129, 40 103, 53 81
+         C 67 59, 88 43, 113 37
+         C 122 35, 131 35, 140 38 Z"
+      fill="none"/>
+  </defs>
+
+  <!-- ── 0. Cream paper backdrop ──────────────────────────────── -->
+  <rect x="0" y="0" width="280" height="280" fill="#f1ebe0"/>
+  <g filter="url(#paperBgSm)" opacity="0.6">
+    <rect x="0" y="0" width="280" height="280" fill="#1a1612"/>
+  </g>
+
+  <!-- Wax disk -->
+  <use href="#waxOutlineSm" fill="#A8201A"/>
+  <g filter="url(#waxNoiseSm)" opacity="0.55">
+    <use href="#waxOutlineSm" fill="#A8201A"/>
+  </g>
+
+  <!-- Cream inner field -->
+  <use href="#creamFieldSm" fill="#f1ebe0"/>
+  <g filter="url(#paperGrainSm)" opacity="0.7">
+    <use href="#creamFieldSm" fill="#1a1612"/>
+  </g>
+
+  <!-- Engraved inner ring -->
+  <use href="#creamFieldSm" fill="none" stroke="#1a1612" stroke-width="0.8" opacity="0.45"/>
+
+  <!-- Tiny olive sprigs -->
+  <g fill="#1a1612" opacity="0.55">
+    <ellipse cx="68" cy="136" rx="6" ry="2.5" transform="rotate(-15 68 136)"/>
+    <ellipse cx="68" cy="144" rx="6" ry="2.5" transform="rotate(15 68 144)"/>
+    <ellipse cx="212" cy="136" rx="6" ry="2.5" transform="rotate(15 212 136)"/>
+    <ellipse cx="212" cy="144" rx="6" ry="2.5" transform="rotate(-15 212 144)"/>
+  </g>
+
+  <!-- Central monogram -->
+  <text x="140" y="170"
+        font-family="'Cinzel', 'Trajan Pro', 'IM Fell English SC', serif"
+        font-size="100"
+        font-weight="700"
+        fill="#1a1612"
+        text-anchor="middle"
+        letter-spacing="-3">SE</text>
+
+  <!-- Centered interpunct -->
+  <circle cx="140" cy="202" r="2" fill="#A8201A"/>
+</svg>

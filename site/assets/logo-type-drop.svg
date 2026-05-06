@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" width="480" height="200" role="img" aria-label="sealed-env drop cap">
+  <!--
+    sealed-env · drop-cap variant
+    A magazine drop cap. The "S" is the hero, the rest is supporting.
+    Works at masthead scale; the tiny "ealed-env" reads as caption.
+  -->
+
+  <!-- Drop cap S, terracotta to set it as a special character -->
+  <text x="20" y="170"
+        font-family="'Fraunces', 'Instrument Serif', Georgia, serif"
+        font-size="200"
+        font-weight="400"
+        font-style="italic"
+        fill="#c4471f"
+        letter-spacing="-6">S</text>
+
+  <!-- the rest of the word -->
+  <text x="170" y="100"
+        font-family="'Fraunces', 'Instrument Serif', Georgia, serif"
+        font-size="64"
+        font-weight="400"
+        font-style="italic"
+        fill="#1a1612"
+        letter-spacing="-2">ealed</text>
+
+  <text x="170" y="170"
+        font-family="'Fraunces', 'Instrument Serif', Georgia, serif"
+        font-size="64"
+        font-weight="400"
+        font-style="italic"
+        fill="#1a1612"
+        letter-spacing="-2">env</text>
+
+  <!-- Vertical seal line between drop cap and rest -->
+  <rect x="155" y="40" width="3" height="140" fill="#c4471f"/>
+</svg>

@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 304" width="280" height="304" role="img" aria-label="sealed-env Roman sigillum">
+  <!--
+    sealed-env · Roman sigillum (refined v3.1, self-contained)
+    Cream paper backdrop included so the seal renders on any page background.
+  -->
+
+  <defs>
+    <filter id="paperGrain" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="7"/>
+      <feColorMatrix values="0 0 0 0 0.10
+                              0 0 0 0 0.08
+                              0 0 0 0 0.07
+                              0 0 0 0.10 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <filter id="paperBg" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="21"/>
+      <feColorMatrix values="0 0 0 0 0.06
+                              0 0 0 0 0.04
+                              0 0 0 0 0.02
+                              0 0 0 0.05 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <filter id="waxNoise" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="3"/>
+      <feColorMatrix values="0 0 0 0 0.30
+                              0 0 0 0 0.05
+                              0 0 0 0 0.04
+                              0 0 0 0.18 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <path id="waxOutline"
+      d="M 140 20
+         C 166 19, 190 26, 211 40
+         C 234 54, 252 76, 259 104
+         C 264 130, 262 156, 252 180
+         C 242 203, 225 223, 204 236
+         C 181 250, 156 256, 131 254
+         C 104 252, 80 242, 61 225
+         C 42 208, 29 185, 23 159
+         C 18 133, 21 107, 33 83
+         C 45 59, 65 40, 90 29
+         C 106 22, 123 19, 140 20 Z"
+      fill="none"/>
+
+    <path id="creamField"
+      d="M 140 44
+         C 164 45, 187 53, 204 68
+         C 221 83, 231 104, 234 126
+         C 236 149, 231 171, 219 190
+         C 207 208, 190 222, 170 229
+         C 149 236, 128 236, 108 229
+         C 87 222, 70 209, 58 191
+         C 45 173, 40 151, 42 129
+         C 44 108, 53 87, 69 72
+         C 85 57, 107 48, 129 45
+         C 133 44, 136 44, 140 44 Z"
+      fill="none"/>
+
+    <path id="legendArc"
+      d="M 140 140 m -68 0 a 68 68 0 1 1 136 0 a 68 68 0 1 1 -136 0"
+      fill="none"/>
+  </defs>
+
+  <!-- ── 0. Cream paper backdrop (whole canvas) ─────────────────── -->
+  <rect x="0" y="0" width="280" height="304" fill="#f1ebe0"/>
+  <g filter="url(#paperBg)" opacity="0.6">
+    <rect x="0" y="0" width="280" height="304" fill="#1a1612"/>
+  </g>
+
+  <!-- ── 1. Wax disk (sealing-wax red) ─────────────────────────── -->
+  <use href="#waxOutline" fill="#A8201A"/>
+  <g filter="url(#waxNoise)" opacity="0.55">
+    <use href="#waxOutline" fill="#A8201A"/>
+  </g>
+
+  <!-- micro-cracks in the wax -->
+  <g stroke="#7A1411" stroke-width="0.5" stroke-linecap="round" opacity="0.4" fill="none">
+    <path d="M 50 82 q 6 4 10 12"/>
+    <path d="M 232 114 q -4 6 -2 14"/>
+    <path d="M 210 208 q -4 -2 -10 -2"/>
+    <path d="M 76 212 q 4 -4 12 -2"/>
+  </g>
+
+  <!-- ── 2. Wax drip below the seal ─────────────────────────────── -->
+  <path d="M 136 252
+           C 134 260, 134 268, 136 274
+           C 138 280, 142 282, 144 276
+           C 146 270, 146 262, 144 252 Z"
+        fill="#A8201A" opacity="0.85"/>
+  <path d="M 136 252
+           C 134 260, 134 268, 136 274
+           C 138 280, 142 282, 144 276
+           C 146 270, 146 262, 144 252 Z"
+        fill="#7A1411" opacity="0.3"/>
+
+  <!-- ── 3. Cream inner field with paper grain ────────────────── -->
+  <use href="#creamField" fill="#f1ebe0"/>
+  <g filter="url(#paperGrain)" opacity="0.85">
+    <use href="#creamField" fill="#1a1612"/>
+  </g>
+
+  <!-- ── 4. Engraved rules ────────────────────────────────────── -->
+  <use href="#creamField" fill="none" stroke="#1a1612" stroke-width="0.7" opacity="0.5"/>
+  <circle cx="140" cy="140" r="86" fill="none" stroke="#1a1612" stroke-width="0.5" opacity="0.3"/>
+
+  <!-- ── 5. Curved legend ─────────────────────────────────────── -->
+  <text font-family="'Cinzel', 'Trajan Pro', 'IM Fell English SC', serif"
+        font-size="11"
+        font-weight="700"
+        letter-spacing="3"
+        fill="#1a1612">
+    <textPath href="#legendArc" startOffset="50%" text-anchor="middle">
+      ·  SEALED  ·  ENV  ·  CVSTOS  ·  ARCANI  ·  MMXXVI  ·
+    </textPath>
+  </text>
+
+  <!-- ── 6. Olive sprigs flanking the monogram ────────────────── -->
+  <g transform="translate(90, 150)" fill="#1a1612" opacity="0.7">
+    <line x1="0" y1="0" x2="14" y2="0" stroke="#1a1612" stroke-width="1" opacity="0.7"/>
+    <ellipse cx="3" cy="-3" rx="5" ry="2" transform="rotate(-25 3 -3)"/>
+    <ellipse cx="9" cy="-4" rx="5" ry="2" transform="rotate(-15 9 -4)"/>
+    <ellipse cx="3" cy="3" rx="5" ry="2" transform="rotate(25 3 3)"/>
+    <ellipse cx="9" cy="4" rx="5" ry="2" transform="rotate(15 9 4)"/>
+  </g>
+  <g transform="translate(190, 150) scale(-1, 1)" fill="#1a1612" opacity="0.7">
+    <line x1="0" y1="0" x2="14" y2="0" stroke="#1a1612" stroke-width="1" opacity="0.7"/>
+    <ellipse cx="3" cy="-3" rx="5" ry="2" transform="rotate(-25 3 -3)"/>
+    <ellipse cx="9" cy="-4" rx="5" ry="2" transform="rotate(-15 9 -4)"/>
+    <ellipse cx="3" cy="3" rx="5" ry="2" transform="rotate(25 3 3)"/>
+    <ellipse cx="9" cy="4" rx="5" ry="2" transform="rotate(15 9 4)"/>
+  </g>
+
+  <!-- ── 7. Central monogram: SE in lapidary Roman caps ──────── -->
+  <text x="140" y="160"
+        font-family="'Cinzel', 'Trajan Pro', 'IM Fell English SC', serif"
+        font-size="56"
+        font-weight="700"
+        fill="#1a1612"
+        text-anchor="middle"
+        letter-spacing="-1">SE</text>
+
+  <!-- ── 8. Centered Roman interpunct ──────────────────────────── -->
+  <circle cx="140" cy="190" r="2" fill="#A8201A"/>
+
+  <!-- ── 9. Three small "metal-press" dots top of cream field ─── -->
+  <circle cx="140" cy="74" r="1.5" fill="#1a1612" opacity="0.6"/>
+  <circle cx="130" cy="70" r="1.2" fill="#1a1612" opacity="0.4"/>
+  <circle cx="150" cy="70" r="1.2" fill="#1a1612" opacity="0.4"/>
+
+</svg>

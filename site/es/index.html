@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>sealed-env — encripta tu .env, ábrelo en el deploy</title>
+  <meta name="description"
+        content="Una librería cross-stack (Node + Java) para encriptar archivos .env con apertura ligada a TOTP en producción. Defiende contra los ataques de cadena de suministro de 2024-2026." />
+
+  <!-- Open Graph / social -->
+  <meta property="og:title" content="sealed-env" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://davidalmeidac.github.io/sealed-env/es/" />
+  <meta property="og:description"
+        content="Archivos .env encriptados, apertura con TOTP en deploy. Node + Java, MIT." />
+  <meta property="og:image" content="https://davidalmeidac.github.io/sealed-env/assets/logo-lockup.svg" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="icon" type="image/svg+xml" href="../assets/logo-sigillum-mono.svg" />
+  <link rel="alternate" hreflang="en" href="https://davidalmeidac.github.io/sealed-env/" />
+  <link rel="alternate" hreflang="es" href="https://davidalmeidac.github.io/sealed-env/es/" />
+  <link rel="alternate" hreflang="x-default" href="https://davidalmeidac.github.io/sealed-env/" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Fraunces:ital,wght@0,400;0,500;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <script src="../i18n.js" defer></script>
+</head>
+<body>
+
+<!-- ────────────────────────── Top bar ────────────────────────── -->
+<header class="topbar">
+  <a class="topbar__brand" href="#top" aria-label="sealed-env inicio">
+    <img src="../assets/logo-sigillum-mono.svg" alt="" width="32" height="32" />
+    <span>sealed-env</span>
+  </a>
+  <nav class="topbar__links" aria-label="Principal">
+    <a href="#problem">El problema</a>
+    <a href="#modes">Modos</a>
+    <a href="#tour">Tour</a>
+    <a href="#threat-model">Modelo de amenazas</a>
+    <a href="#help">Colabora</a>
+    <a href="#sponsor">Patrocina</a>
+    <span class="topbar__lang" role="group" aria-label="Idioma">
+      <a href="/?lang=en" lang="en">EN</a>
+      <span aria-hidden="true">·</span>
+      <a href="/es/?lang=es" aria-current="page" lang="es">ES</a>
+    </span>
+    <a class="topbar__cta" href="https://github.com/davidalmeidac/sealed-env" rel="noopener">GitHub →</a>
+  </nav>
+</header>
+
+<!-- ────────────────────────── Hero ────────────────────────── -->
+<section id="top" class="hero">
+  <div class="hero__inner">
+    <img class="hero__lockup"
+         src="../assets/logo-lockup.svg"
+         alt="sealed-env" />
+
+    <p class="hero__tagline">
+      Encripta tu <code>.env</code>. <br/>
+      <em>Ábrelo en el deploy.</em>
+    </p>
+
+    <p class="hero__lede">
+      Una librería cross-stack (<strong>Node</strong> + <strong>Java&nbsp;/&nbsp;Spring&nbsp;Boot</strong>)
+      para secretos encriptados en disco, con <strong>apertura ligada a TOTP</strong>
+      para deploys en producción. Diseñada contra los ataques de cadena de suministro
+      que rompieron 2024–2026.
+    </p>
+
+    <div class="hero__ctas">
+      <a class="btn btn--primary" href="#tour">Mírala en 30 segundos</a>
+      <a class="btn btn--ghost" href="https://github.com/davidalmeidac/sealed-env" rel="noopener">
+        Star en GitHub
+      </a>
+    </div>
+
+    <ul class="hero__badges" aria-label="Distribución">
+      <li><a href="https://www.npmjs.com/package/sealed-env" rel="noopener">
+        <span class="badge__label">npm</span>
+        <span class="badge__value">sealed-env</span>
+      </a></li>
+      <li><a href="https://central.sonatype.com/artifact/io.github.davidalmeidac/sealed-env-core" rel="noopener">
+        <span class="badge__label">Maven Central</span>
+        <span class="badge__value">io.github.davidalmeidac</span>
+      </a></li>
+      <li>
+        <span class="badge__label">Licencia</span>
+        <span class="badge__value">MIT</span>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- ────────────────────────── Problem ────────────────────────── -->
+<section id="problem" class="section section--alt">
+  <div class="section__inner">
+    <p class="section__eyebrow">El problema</p>
+    <h2 class="section__title">El <code>.env</code> en texto plano no sobrevivió a 2024–2026.</h2>
+
+    <div class="grid grid--3">
+      <article class="card">
+        <h3>Gusano Shai-Hulud (npm) <span class="card__date">Nov 2025</span></h3>
+        <p>
+          Un gusano auto-replicante en el ecosistema npm escaneó equipos
+          de devs y CI runners buscando archivos <code>.env</code> y los
+          publicó en repos abiertos de GitHub. Miles de credenciales filtradas.
+        </p>
+      </article>
+      <article class="card">
+        <h3>tj-actions/changed-files <span class="card__date">Mar 2025</span></h3>
+        <p>
+          Una GitHub Action muy popular fue comprometida. Cada job que la
+          usaba volcó sus variables de entorno en logs públicos de CI.
+          El radio de impacto alcanzó decenas de miles de repos.
+        </p>
+      </article>
+      <article class="card">
+        <h3>Campaña GhostAction <span class="card__date">2024–2025</span></h3>
+        <p>
+          Una ola coordinada de tokens de CI robados, usada para publicar
+          paquetes troyanizados y cosechar más secretos — apalancando
+          justamente los tokens que la mayoría de equipos guardan junto
+          a su <code>.env</code>.
+        </p>
+      </article>
+    </div>
+
+    <p class="section__quote">
+      El patrón es el mismo: <strong>el acceso de lectura al sistema de archivos
+      o al entorno de un proceso se convierte en acceso total a las credenciales.</strong>
+      Encriptar en disco no basta — si la llave maestra se filtra junto con
+      el archivo, la bóveda se abre.
+    </p>
+  </div>
+</section>
+
+<!-- ────────────────────────── Solution / modes ────────────────────────── -->
+<section id="modes" class="section">
+  <div class="section__inner">
+    <p class="section__eyebrow">La solución</p>
+    <h2 class="section__title">Tres modos. Tú eliges el modelo de amenazas.</h2>
+
+    <div class="grid grid--3">
+      <article class="card card--mode">
+        <h3>basic</h3>
+        <p class="card__sub">Para devs en solitario y repos privados.</p>
+        <ul>
+          <li>AES-256-GCM</li>
+          <li>KDF scrypt / Argon2id</li>
+          <li>Solo llave maestra</li>
+        </ul>
+        <p class="card__verdict">
+          <strong>Defiende contra:</strong> filtraciones de backups, pushes
+          accidentales a git, heap dumps tras el wipe de la llave.
+        </p>
+      </article>
+
+      <article class="card card--mode">
+        <h3>team</h3>
+        <p class="card__sub">Para repos compartidos y CI.</p>
+        <ul>
+          <li>Todo lo de <code>basic</code></li>
+          <li>+ Integridad HMAC-SHA256</li>
+          <li>+ Llave de firma independiente</li>
+        </ul>
+        <p class="card__verdict">
+          <strong>Defiende contra:</strong> manipulación interna, compromiso
+          de solo la llave maestra (el HMAC falla antes de intentar descifrar).
+        </p>
+      </article>
+
+      <article class="card card--mode card--mode-emph">
+        <h3>enterprise</h3>
+        <p class="card__sub">Para deploys en producción.</p>
+        <ul>
+          <li>Todo lo de <code>team</code></li>
+          <li>+ Token de apertura TOTP corto (RFC 6238)</li>
+          <li>+ Desafío ligado al deploy (commit SHA)</li>
+        </ul>
+        <p class="card__verdict">
+          <strong>Defiende contra:</strong> pasos de CI comprometidos, tokens
+          capturados y reusados en otro deploy, phishing AitM al operador.
+        </p>
+      </article>
+    </div>
+
+    <details class="diagram-wrap">
+      <summary>Ver el pipeline de descifrado por modo</summary>
+<pre class="diagram"><code>   basic                    team                     enterprise
+   ─────                    ────                     ──────────
+
+   .env.sealed              .env.sealed              .env.sealed
+        │                        │                        │
+        ▼                        ▼                        ▼
+   ┌─────────┐              ┌─────────┐              ┌─────────┐
+   │ AES-GCM │              │  HMAC   │              │  HMAC   │
+   │ decrypt │              │ verify  │              │ verify  │
+   └────┬────┘              └────┬────┘              └────┬────┘
+        ▼                        ▼                        ▼
+   plaintext                ┌─────────┐              ┌─────────┐
+                            │ AES-GCM │              │  TOTP   │
+                            │ decrypt │              │  token  │
+                            └────┬────┘              │ verify  │
+                                 ▼                   └────┬────┘
+                            plaintext                     ▼
+                                                     ┌─────────┐
+                                                     │ deploy  │
+                                                     │  bind   │
+                                                     └────┬────┘
+                                                          ▼
+                                                     ┌─────────┐
+                                                     │ AES-GCM │
+                                                     │ decrypt │
+                                                     └────┬────┘
+                                                          ▼
+                                                     plaintext</code></pre>
+    </details>
+  </div>
+</section>
+
+<!-- ────────────────────────── 30-second tour ────────────────────────── -->
+<section id="tour" class="section section--alt">
+  <div class="section__inner">
+    <p class="section__eyebrow">Tour de 30 segundos</p>
+    <h2 class="section__title">El mismo archivo. Dos stacks.</h2>
+    <p class="section__lede">
+      Un archivo <code>.env.sealed</code> escrito por la CLI de Node se
+      desencripta limpio desde un servicio Java / Spring Boot, y al revés.
+      Verificado byte-a-byte por tests automáticos de interop cross-stack
+      en cada commit.
+    </p>
+
+    <div class="grid grid--2">
+      <div class="snippet">
+        <header class="snippet__header">
+          <span class="snippet__lang">Node</span>
+          <span class="snippet__file">npm install sealed-env</span>
+        </header>
+<pre class="snippet__code"><code><span class="c">// 1. encripta tu .env existente (CLI)</span>
+$ <span class="k">SEALED_ENV_KEY</span>=$(openssl rand -hex 32) \
+    npx sealed-env seal .env
+<span class="c">// → escribe .env.sealed (commit este)</span>
+
+<span class="c">// 2. lee al arrancar</span>
+<span class="k">import</span> { loadSealed } <span class="k">from</span> <span class="s">"sealed-env"</span>;
+loadSealed();
+console.log(process.env.<span class="k">API_KEY</span>);</code></pre>
+      </div>
+
+      <div class="snippet">
+        <header class="snippet__header">
+          <span class="snippet__lang">Java / Spring Boot 3</span>
+          <span class="snippet__file">io.github.davidalmeidac:sealed-env-spring-boot-starter</span>
+        </header>
+<pre class="snippet__code"><code><span class="c">// application.yml</span>
+sealed-env:
+  enabled: true
+  path: .env.sealed
+  fail-fast: true
+
+<span class="c">// en cualquier bean — los valores llegan descifrados</span>
+<span class="k">@Value</span>(<span class="s">"${API_KEY}"</span>)
+<span class="k">private String</span> apiKey;</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────── Threat model ────────────────────────── -->
+<section id="threat-model" class="section">
+  <div class="section__inner">
+    <p class="section__eyebrow">Modelo de amenazas</p>
+    <h2 class="section__title">Contra qué defendemos — y contra qué no.</h2>
+    <p class="section__lede">
+      Una herramienta de seguridad sin un modelo de amenazas público es marketing.
+      <a href="https://github.com/davidalmeidac/sealed-env/blob/main/THREAT_MODEL.md" rel="noopener">El nuestro está acá</a>,
+      mapeando cada defensa a un incidente real de 2024–2026.
+    </p>
+
+    <table class="threat-table">
+      <thead>
+        <tr>
+          <th scope="col">Tipo de ataque</th>
+          <th scope="col">Defendido por</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Gusano Shai-Hulud (exfiltración del entorno)</td><td><code>basic</code></td></tr>
+        <tr><td>Filtración de backup / S3 público</td><td><code>basic</code></td></tr>
+        <tr><td>CVEs de heapdump en Spring Boot</td><td><code>basic</code> (llave borrada tras derivación)</td></tr>
+        <tr><td>Manipulación interna del <code>.env.sealed</code></td><td><code>team</code></td></tr>
+        <tr><td>Compromiso de CI tipo tj-actions / GhostAction</td><td><code>enterprise + CHALLENGE-BIND</code></td></tr>
+        <tr><td>Phishing AitM del TOTP (EvilProxy)</td><td><code>enterprise + CHALLENGE-BIND</code> (parcial)</td></tr>
+        <tr class="threat-table__not"><td>Host de producción comprometido con shell</td><td>Fuera de alcance (no hay defensa en runtime)</td></tr>
+        <tr class="threat-table__not"><td>KMS / laptop del operador comprometido</td><td>Fuera de alcance (v0.3.x: llaves con HSM)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ────────────────────────── Help build ────────────────────────── -->
+<section id="help" class="section section--cta">
+  <div class="section__inner section__inner--narrow">
+    <p class="section__eyebrow">Ayuda a construirlo</p>
+    <h2 class="section__title">Esto es <em>v0.1.0-alpha</em>. Hay mucho por hacer.</h2>
+
+    <p>
+      <code>sealed-env</code> se construye en abierto desde Bucaramanga, Colombia.
+      Es MIT y no hay empresa detrás — todavía. Ahora mismo necesita gente
+      que se preocupe por tres cosas:
+    </p>
+
+    <ul class="help-list">
+      <li>
+        <strong>Revisión criptográfica.</strong> Ojos independientes sobre
+        <a href="https://github.com/davidalmeidac/sealed-env/blob/main/SPEC.md" rel="noopener">la spec</a>
+        y las implementaciones de Node + Java. El formato está congelado en v1;
+        revisar ahora es máximo apalancamiento.
+      </li>
+      <li>
+        <strong>Adaptadores.</strong> Ports a Python, Go y Rust del lector v1.
+        El formato es chico y los vectores de prueba son públicos
+        (<a href="https://github.com/davidalmeidac/sealed-env/tree/main/test-vectors/v1" rel="noopener">test-vectors/v1/</a>).
+      </li>
+      <li>
+        <strong>Feedback del mundo real.</strong> Si lo metes en un side
+        project y lo rompes, eso es un regalo. Abre un issue con el repro.
+      </li>
+      <li>
+        <strong>Docs y traducciones.</strong> Las docs en español están en camino;
+        PRs bienvenidos de cualquiera en la comunidad LATAM.
+      </li>
+    </ul>
+
+    <div class="help-ctas">
+      <a class="btn btn--primary" href="https://github.com/davidalmeidac/sealed-env/issues" rel="noopener">
+        Abre un issue
+      </a>
+      <a class="btn btn--ghost" href="https://github.com/davidalmeidac/sealed-env/blob/main/SECURITY.md" rel="noopener">
+        Reportar vulnerabilidad
+      </a>
+    </div>
+
+    <p class="help-spanish">
+      Soy David Almeida, 18 años, dev backend autodidacta en Bucaramanga.
+      Si querés colaborar, escribime a
+      <a href="mailto:davidalmeidac@proton.me">davidalmeidac@proton.me</a> o por
+      <a href="https://github.com/davidalmeidac" rel="noopener">GitHub</a>.
+      Buscando feedback técnico, colaboradores, y eventualmente un equipo.
+    </p>
+  </div>
+</section>
+
+<!-- ────────────────────────── Sponsor ────────────────────────── -->
+<section id="sponsor" class="section section--sponsor">
+  <div class="section__inner section__inner--narrow">
+    <p class="section__eyebrow">Patrocinio</p>
+    <h2 class="section__title">Ayúdame a seguir trabajando en esto.</h2>
+
+    <p>
+      <code>sealed-env</code> es MIT y gratis para siempre — pero el tiempo
+      para mantenerlo, auditarlo y hacerlo crecer no es gratis. Los
+      patrocinios van directo a:
+    </p>
+
+    <ul class="sponsor-list">
+      <li><strong>Investigación de seguridad.</strong> Seguir nuevos patrones de ataque y actualizar el modelo de amenazas a medida que cambia el panorama.</li>
+      <li><strong>Nuevos adaptadores.</strong> Ports a Python, Go y Rust del lector v1.</li>
+      <li><strong>Auditoría criptográfica independiente.</strong> Pagar a auditores con experiencia para revisar la spec y el código.</li>
+      <li><strong>Que el mantenedor coma.</strong> Literalmente — tengo 18 años y vivo en Colombia. Cada patrocinio es un día más que puedo dedicarle a esto en vez de aceptar un trabajo que me aleje del proyecto.</li>
+    </ul>
+
+    <div class="sponsor-tiers">
+      <a class="tier" href="https://github.com/sponsors/davidalmeidac" rel="noopener">
+        <span class="tier__amount">$5<span class="tier__period">/mes</span></span>
+        <span class="tier__label">Café</span>
+        <span class="tier__desc">Tu nombre en la lista de supporters. Gracias en silencio.</span>
+      </a>
+      <a class="tier tier--featured" href="https://github.com/sponsors/davidalmeidac" rel="noopener">
+        <span class="tier__amount">$25<span class="tier__period">/mes</span></span>
+        <span class="tier__label">Mantenedor</span>
+        <span class="tier__desc">Logo en el README. Prioridad en el triage de bugs. Gracias dichas.</span>
+      </a>
+      <a class="tier" href="https://github.com/sponsors/davidalmeidac" rel="noopener">
+        <span class="tier__amount">$200<span class="tier__period">/mes</span></span>
+        <span class="tier__label">Producción</span>
+        <span class="tier__desc">Línea directa conmigo. Ayuda con tu integración. Logo en la landing.</span>
+      </a>
+    </div>
+
+    <div class="sponsor-alt">
+      <p class="sponsor-alt__lead">¿Prefieres una donación única?</p>
+      <a class="btn btn--ghost sponsor-alt__btn"
+         href="https://ko-fi.com/davidalmeidac" rel="noopener">
+        Invítame un café en Ko-fi ☕
+      </a>
+      <p class="sponsor-note">
+        El 100% va al proyecto — Ko-fi no se queda nada en los tips estándar.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────── Footer ────────────────────────── -->
+<footer class="footer">
+  <div class="footer__inner">
+    <img src="../assets/logo-sigillum-mono.svg" alt="" width="44" height="44" />
+    <p class="footer__motto">
+      <em>Cvstos arcani.</em><br/>
+      Encripta en disco · Autentica en el deploy · Borra al leer.
+    </p>
+    <ul class="footer__links">
+      <li><a href="https://github.com/davidalmeidac/sealed-env" rel="noopener">GitHub</a></li>
+      <li><a href="https://www.npmjs.com/package/sealed-env" rel="noopener">npm</a></li>
+      <li><a href="https://central.sonatype.com/artifact/io.github.davidalmeidac/sealed-env-core" rel="noopener">Maven Central</a></li>
+      <li><a href="https://github.com/davidalmeidac/sealed-env/blob/main/SPEC.md" rel="noopener">Spec</a></li>
+      <li><a href="https://github.com/davidalmeidac/sealed-env/blob/main/THREAT_MODEL.md" rel="noopener">Modelo de amenazas</a></li>
+    </ul>
+    <p class="footer__copy">
+      MIT · David Almeida · MMXXVI
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

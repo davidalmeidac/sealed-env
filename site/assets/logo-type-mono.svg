@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="sealed-env monogram">
+  <!--
+    sealed-env · monogram variant
+    Just "se" set in Fraunces italic. Pairs with the wordmark elsewhere.
+    This is the "favicon shape" — works at 16px.
+  -->
+  <text x="128" y="170"
+        font-family="'Fraunces', 'Instrument Serif', Georgia, serif"
+        font-size="180"
+        font-weight="500"
+        font-style="italic"
+        fill="#1a1612"
+        text-anchor="middle"
+        letter-spacing="-8">se</text>
+
+  <!-- One small terracotta tick at the baseline corner — quiet brand cue -->
+  <rect x="180" y="155" width="14" height="4" fill="#c4471f"/>
+</svg>

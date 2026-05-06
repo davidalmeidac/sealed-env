@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 160" width="480" height="160" role="img" aria-label="sealed-env wordmark">
+  <!--
+    sealed-env · primary wordmark (refined)
+    Just type. The hyphen is replaced by a small terracotta bar — a quiet
+    nod to the wax seal without being literal. This is the only "graphical"
+    detail in the entire mark. Everything else is honest typography.
+  -->
+  <text x="20" y="105"
+        font-family="'Fraunces', 'Instrument Serif', Georgia, serif"
+        font-size="100"
+        font-weight="500"
+        font-style="italic"
+        fill="#1a1612"
+        letter-spacing="-3">sealed</text>
+
+  <!-- The "seal" bar — stands in for the hyphen.
+       Slightly thicker than a typeset dash, slightly raised off baseline
+       like a printer's piece of stamped wax. -->
+  <rect x="270" y="73" width="38" height="10" fill="#c4471f"/>
+
+  <text x="318" y="105"
+        font-family="'Fraunces', 'Instrument Serif', Georgia, serif"
+        font-size="100"
+        font-weight="500"
+        font-style="italic"
+        fill="#1a1612"
+        letter-spacing="-3">env</text>
+</svg>
