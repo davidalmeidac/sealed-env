@@ -51,41 +51,32 @@ export function constantTimeEqual(a: Buffer, b: Buffer): boolean {
 }
 
 /**
- * Derive a key from a master secret using a strong KDF.
+ * Derive a 32-byte key from a master secret using the KDF declared in the file.
  *
- * NOTE: Node 22+ does not ship Argon2 in the standard library. We use scrypt
- * as the fallback (also a memory-hard PHC finalist) until we can guarantee
- * native bindings without adding dependencies.
- *
- * The format file declares `argon2id` per spec — Node consumers will see this
- * and use the bundled scrypt-based reader for v0.1.x while we lobby for native
- * Argon2 support in core. Java consumers, which DO have built-in Argon2 (via
- * Bouncy Castle stdlib), produce the canonical format.
- *
- * For interop in v0.1.x, the Node implementation maps `argon2id` parameters
- * onto scrypt's N/r/p with a documented translation. This will be replaced
- * by true Argon2id in v0.2.x once we either (a) Node ships it, or
- * (b) we ship a tiny bundled wasm module.
+ * Node 22 stdlib supports scrypt (RFC 7914) natively. It does NOT support
+ * Argon2id — files written with `KDF=argon2id` (typically by the Java
+ * implementation) cannot be decrypted by Node alone in v0.x and surface a
+ * clear `UNSUPPORTED_KDF` error. The Java implementation handles both.
  *
  * @internal — exported only for tests
  */
 export function deriveMasterKey(
   masterKey: Buffer,
   salt: Buffer,
-  _params: KdfParams,
+  params: KdfParams,
 ): Buffer {
-  // For v0.1.x we use scrypt as the KDF in the Node implementation.
-  // Parameters chosen to:
-  //   - hit RFC 7914 "login authentication" recommended cost
-  //   - stay below default Node maxmem (32 MB) so it works on tiny CI runners
-  //   - finish in <500ms on modern desktops
-  //
-  // The on-disk format declares `argon2id` with logical params for
-  // forward-compat. v0.2.x will add a wasm Argon2id and re-honor the params.
-  const N = 1 << 15; // 32768
-  const r = 8;
-  const p = 1;
-  return scryptSync(masterKey, salt, KEY_LEN, { N, r, p, maxmem: 64 * 1024 * 1024 });
+  if (params.kind === 'scrypt') {
+    const { N, r, p } = params.params;
+    // maxmem is computed roughly as 128 * N * r * p * 1.1 — give it 4x headroom
+    const maxmem = Math.max(64 * 1024 * 1024, 128 * N * r * p * 4);
+    return scryptSync(masterKey, salt, KEY_LEN, { N, r, p, maxmem });
+  }
+  // argon2id — Node 22 stdlib has no implementation. Reject with a clear error
+  // so the operator knows to use the Java tool (or wait for v0.2.x wasm).
+  throw new SealedEnvError(
+    'UNSUPPORTED_KDF',
+    'sealed-env: Node 22 stdlib has no Argon2id; this file was sealed by the Java implementation. Use the Java tool to unseal, or wait for sealed-env v0.2.x with bundled Argon2id wasm.',
+  );
 }
 
 /**

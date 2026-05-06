@@ -24,7 +24,8 @@ import { SealedEnvError } from './errors.js';
 import { parseSealedFile } from '../format/parser.js';
 import { buildAad, serializeSealedFile } from '../format/serializer.js';
 import {
-  DEFAULT_KDF_PARAMS,
+  DEFAULT_KDF,
+  DEFAULT_SCRYPT_PARAMS,
   HKDF_INFO_ENC,
   HKDF_INFO_MAC,
   KEY_LEN,
@@ -35,6 +36,7 @@ import {
 import type {
   KdfParams,
   LoadSealedOptions,
+  ScryptParams,
   SealOptions,
   SealedFile,
   UnsealOptions,
@@ -72,11 +74,12 @@ export function seal(opts: SealOptions): { file: SealedFile; serialized: string 
     }
   }
 
-  const kdfParams: KdfParams = {
-    t: opts.kdfParams?.t ?? DEFAULT_KDF_PARAMS.t,
-    m: opts.kdfParams?.m ?? DEFAULT_KDF_PARAMS.m,
-    p: opts.kdfParams?.p ?? DEFAULT_KDF_PARAMS.p,
+  const scryptParams: ScryptParams = {
+    N: opts.scryptParams?.N ?? DEFAULT_SCRYPT_PARAMS.N,
+    r: opts.scryptParams?.r ?? DEFAULT_SCRYPT_PARAMS.r,
+    p: opts.scryptParams?.p ?? DEFAULT_SCRYPT_PARAMS.p,
   };
+  const kdfParams: KdfParams = { kind: 'scrypt', params: scryptParams };
 
   const salt = randomBytes(SALT_LEN);
   const nonce = randomBytes(NONCE_LEN);
@@ -106,7 +109,7 @@ export function seal(opts: SealOptions): { file: SealedFile; serialized: string 
       const draft: SealedFile = {
         version: 1,
         mode: opts.mode,
-        kdf: 'argon2id',
+        kdf: DEFAULT_KDF,
         kdfParams,
         salt,
         nonce,

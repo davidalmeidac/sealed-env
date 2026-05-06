@@ -20,8 +20,33 @@ export const MAC_LEN = 32;
 /** TOTP secret length recommended (20 bytes per RFC 4226). */
 export const TOTP_SECRET_LEN = 20;
 
-/** Default KDF parameters. Suitable for desktop hardware in 2026. */
-export const DEFAULT_KDF_PARAMS = Object.freeze({
+/**
+ * Default KDF identifier emitted by the Node writer.
+ *
+ * Node 22 stdlib does not ship Argon2id, so the Node implementation honestly
+ * declares `scrypt` (RFC 7914) — also memory-hard, also a PHC finalist.
+ * The Java implementation supports BOTH `scrypt` and `argon2id` via Bouncy
+ * Castle, so files written by Node decrypt cleanly there.
+ */
+export const DEFAULT_KDF = 'scrypt' as const;
+
+/**
+ * Default scrypt parameters. Calibrated to:
+ *   - hit RFC 7914 "login authentication" recommended cost
+ *   - stay under 64 MB so tiny CI runners survive
+ *   - finish in <500ms on a modern desktop
+ */
+export const DEFAULT_SCRYPT_PARAMS = Object.freeze({
+  N: 32768,
+  r: 8,
+  p: 1,
+});
+
+/**
+ * Default argon2id parameters (used when a future writer honors argon2id —
+ * currently consumed only by readers parsing Java-written files).
+ */
+export const DEFAULT_ARGON2ID_PARAMS = Object.freeze({
   t: 3,
   m: 65536,
   p: 4,

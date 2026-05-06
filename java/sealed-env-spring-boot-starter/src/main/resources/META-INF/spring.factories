@@ -1,0 +1,4 @@
+# EnvironmentPostProcessor must be registered via spring.factories — Boot does
+# NOT pick up EnvironmentPostProcessors from .imports files (only @AutoConfig).
+org.springframework.boot.env.EnvironmentPostProcessor=\
+io.github.davidalmeidac.sealedenv.spring.SealedEnvEnvironmentPostProcessor

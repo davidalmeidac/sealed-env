@@ -10,7 +10,17 @@
  * @see /SPEC.md
  */
 
-import type { SealedFile } from '../core/types.js';
+import type { KdfParams, SealedFile } from '../core/types.js';
+
+/** Render a KDF-PARAMS value in the canonical per-algorithm format. */
+function kdfParamsLine(params: KdfParams): string {
+  if (params.kind === 'argon2id') {
+    const { t, m, p } = params.params;
+    return `t=${t},m=${m},p=${p}`;
+  }
+  const { N, r, p } = params.params;
+  return `N=${N},r=${r},p=${p}`;
+}
 
 /**
  * Serialize a parsed `SealedFile` back to its UTF-8 textual representation.
@@ -27,7 +37,7 @@ export function serializeSealedFile(file: SealedFile): string {
 
   // Metadata in canonical order
   lines.push(`KDF=${file.kdf}`);
-  lines.push(`KDF-PARAMS=t=${file.kdfParams.t},m=${file.kdfParams.m},p=${file.kdfParams.p}`);
+  lines.push(`KDF-PARAMS=${kdfParamsLine(file.kdfParams)}`);
   lines.push(`SALT=${file.salt.toString('base64')}`);
   lines.push(`NONCE=${file.nonce.toString('base64')}`);
 
@@ -73,7 +83,7 @@ export function buildAad(file: SealedFile): Buffer {
   const lines: string[] = [];
   lines.push(`SEALED-ENV-V${file.version} MODE=${file.mode}`);
   lines.push(`KDF=${file.kdf}`);
-  lines.push(`KDF-PARAMS=t=${file.kdfParams.t},m=${file.kdfParams.m},p=${file.kdfParams.p}`);
+  lines.push(`KDF-PARAMS=${kdfParamsLine(file.kdfParams)}`);
   lines.push(`SALT=${file.salt.toString('base64')}`);
   lines.push(`NONCE=${file.nonce.toString('base64')}`);
 

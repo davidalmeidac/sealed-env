@@ -12,9 +12,16 @@
 export type Mode = 'basic' | 'team' | 'enterprise';
 
 /**
- * KDF parameters for Argon2id.
+ * KDF algorithm identifier as written in `.env.sealed`.
+ *
+ * Both implementations MUST be able to READ both. Node currently WRITES only
+ * `scrypt` (Node 22 stdlib has no Argon2id); Java WRITES `argon2id` via
+ * Bouncy Castle but accepts both for cross-stack interop.
  */
-export interface KdfParams {
+export type KdfAlgorithm = 'scrypt' | 'argon2id';
+
+/** Argon2id KDF parameters. */
+export interface Argon2idParams {
   /** Iterations (Argon2 time cost). */
   t: number;
   /** Memory in KB (Argon2 memory cost). */
@@ -23,13 +30,30 @@ export interface KdfParams {
   p: number;
 }
 
+/** scrypt KDF parameters (RFC 7914). */
+export interface ScryptParams {
+  /** CPU/memory cost — must be a power of two. */
+  N: number;
+  /** Block size. */
+  r: number;
+  /** Parallelism. */
+  p: number;
+}
+
+/**
+ * Tagged union over the supported KDF parameter shapes.
+ */
+export type KdfParams =
+  | { kind: 'argon2id'; params: Argon2idParams }
+  | { kind: 'scrypt'; params: ScryptParams };
+
 /**
  * Parsed representation of a `.env.sealed` file.
  */
 export interface SealedFile {
   version: 1;
   mode: Mode;
-  kdf: 'argon2id';
+  kdf: KdfAlgorithm;
   kdfParams: KdfParams;
   salt: Buffer;
   nonce: Buffer;
@@ -58,8 +82,8 @@ export interface SealOptions {
   signingKey?: Buffer;
   /** Whether enterprise tokens are bound to deploy challenges. Default: true for enterprise. */
   challengeBind?: boolean;
-  /** Override KDF parameters. Defaults to {t:3, m:65536, p:4}. */
-  kdfParams?: Partial<KdfParams>;
+  /** Override scrypt params. Defaults to {N: 32768, r: 8, p: 1}. */
+  scryptParams?: Partial<ScryptParams>;
 }
 
 /**

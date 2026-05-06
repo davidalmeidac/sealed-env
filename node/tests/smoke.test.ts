@@ -39,7 +39,7 @@ describe('basic mode', () => {
     const masterKey = Buffer.from('a'.repeat(64), 'hex');
     const { serialized } = seal({ plaintext: 'A=1\n', masterKey, mode: 'basic' });
     assert.ok(serialized.startsWith('SEALED-ENV-V1 MODE=basic'), 'magic line correct');
-    assert.ok(/\nKDF=argon2id\n/.test(serialized), 'KDF declared');
+    assert.ok(/\nKDF=scrypt\n/.test(serialized), 'KDF declared');
   });
 });
 
@@ -202,13 +202,13 @@ describe('TOTP', () => {
 describe('format parser', () => {
   test('rejects malformed magic line', () => {
     // Pad with extra lines so we hit the magic-line check, not the length check
-    const bad = 'NOT-SEALED\nKDF=argon2id\nKDF-PARAMS=t=1,m=1024,p=1\nSALT=AA==\nNONCE=AA==\n';
+    const bad = 'NOT-SEALED\nKDF=scrypt\nKDF-PARAMS=N=1024,r=8,p=1\nSALT=AA==\nNONCE=AA==\n';
     assert.throws(() => parseSealedFile(bad), /magic|invalid/i);
   });
 
   test('rejects unknown mode', () => {
     const bad =
-      'SEALED-ENV-V1 MODE=hacker\nKDF=argon2id\nKDF-PARAMS=t=1,m=1024,p=1\nSALT=AA==\nNONCE=AA==\n';
+      'SEALED-ENV-V1 MODE=hacker\nKDF=scrypt\nKDF-PARAMS=N=1024,r=8,p=1\nSALT=AA==\nNONCE=AA==\n';
     assert.throws(() => parseSealedFile(bad), /unknown mode|magic|invalid/i);
   });
 

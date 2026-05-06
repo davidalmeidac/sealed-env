@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.davidalmeidac</groupId>
+    <artifactId>sealed-env-parent</artifactId>
+    <version>0.1.0-alpha.1</version>
+  </parent>
+
+  <artifactId>sealed-env-spring-boot-starter</artifactId>
+  <packaging>jar</packaging>
+
+  <name>sealed-env (spring-boot-starter)</name>
+  <description>
+    Spring Boot 3 autoconfiguration for sealed-env. Reads the `.env.sealed`
+    file at startup, derives keys, decrypts, and exposes the values to
+    Spring's `Environment`. Driven entirely by application properties.
+  </description>
+
+  <properties>
+    <spring-boot.version>3.3.4</spring-boot.version>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <!--
+            The Spring annotations are processed by the configuration metadata
+            processor, which javac doesn't classify as a "real" annotation
+            processor and emits a warning. We override the parent's -Werror
+            here so that single warning doesn't fail the build.
+          -->
+          <compilerArgs>
+            <arg>-Xlint:all</arg>
+            <arg>-parameters</arg>
+          </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.springframework.boot</groupId>
+              <artifactId>spring-boot-configuration-processor</artifactId>
+              <version>${spring-boot.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.github.davidalmeidac</groupId>
+      <artifactId>sealed-env-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+      <version>${spring-boot.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <version>${spring-boot.version}</version>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <version>${spring-boot.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

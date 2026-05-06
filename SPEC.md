@@ -64,8 +64,8 @@ are simply skipped (the order remains stable).
 
 | # | Key | Required in mode | Format |
 |---|-----|------------------|--------|
-| 1 | `KDF` | all | Always literal `argon2id` in v1 |
-| 2 | `KDF-PARAMS` | all | `t=<int>,m=<int>,p=<int>` |
+| 1 | `KDF` | all | One of `argon2id`, `scrypt` |
+| 2 | `KDF-PARAMS` | all | For argon2id: `t=<int>,m=<int>,p=<int>`. For scrypt: `N=<int>,r=<int>,p=<int>` |
 | 3 | `SALT` | all | base64, 16 bytes raw |
 | 4 | `NONCE` | all | base64, 12 bytes raw |
 | 5 | `TOTP-VERIFIER` | enterprise only | base64, 32 bytes (HMAC-SHA256 commitment) |
@@ -83,7 +83,7 @@ spaces. Whitespace around `=` is NOT allowed.
 | Primitive | Choice | Parameters |
 |-----------|--------|------------|
 | Symmetric cipher | AES-256-GCM | 256-bit key, 96-bit nonce, 128-bit auth tag |
-| Key derivation | Argon2id | default: t=3, m=65536, p=4 (tunable via `KDF-PARAMS`) |
+| Key derivation | **Argon2id** (preferred) or **scrypt** (interim) | argon2id default: t=3, m=65536, p=4 · scrypt default: N=32768, r=8, p=1 |
 | Subkey derivation | HKDF-SHA256 | RFC 5869, info strings listed in §6 |
 | Integrity (team mode) | HMAC-SHA256 | over concatenation defined in §6 |
 | TOTP (enterprise mode) | RFC 6238 | SHA-1, 30s step, 6 digits, ±1 step skew |

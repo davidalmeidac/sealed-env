@@ -1,7 +1,9 @@
 # Build artifacts
 node/dist/
 node/*.tsbuildinfo
+java/**/target/
 java/target/
+java/**/dependency-reduced-pom.xml
 
 # Dependencies
 node_modules/

@@ -1,0 +1,8 @@
+{
+  "mode": "basic",
+  "masterKeyHex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "signingKeyHex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "totpSecretHex": "9f902781a236d579568fcaf1968306d86ff34168",
+  "plaintext": "API_KEY=cross-stack\nDB_URL=postgres://prod\n",
+  "serialized": "SEALED-ENV-V1 MODE=basic\nKDF=scrypt\nKDF-PARAMS=N=32768,r=8,p=1\nSALT=SgBgNa+CCAIqo9jp6n8ljw==\nNONCE=WMLlGHaQkgfAFfJd\nAAD-DIGEST=5k1RB8V3l3//Az35mGdPXA/1obRx3iwjHyDzLz0ibHQ=\nCREATED=2026-05-06T03:46:14.953Z\n\n3K+2tdxeicMNY7lXIB16bXXlqVGn8LLanSgkumIs+fN90pRHbXWls+a2ofZE26rT7CQypUKD+Usek24="
+}

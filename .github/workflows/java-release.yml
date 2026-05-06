@@ -1,0 +1,80 @@
+name: Java Release (Maven Central)
+
+# Triggered by tags of the form java-vX.Y.Z. Publishes both modules
+# (sealed-env-core and sealed-env-spring-boot-starter) to Maven Central
+# via the Sonatype Central Portal.
+on:
+  push:
+    tags:
+      - "java-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # for GitHub Release creation
+  id-token: write   # for sigstore (future)
+
+jobs:
+  release:
+    name: Publish to Maven Central
+    runs-on: ubuntu-latest
+    environment: maven-central
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          server-id: central
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Set up Node 22 (for cross-stack vectors)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Regenerate cross-stack vectors
+        working-directory: node
+        run: |
+          npm ci
+          npm run build
+          mkdir -p ../test-vectors/v1
+          node scripts/gen-test-vector.mjs basic > ../test-vectors/v1/node-basic.json
+          node scripts/gen-test-vector.mjs team  > ../test-vectors/v1/node-team.json
+
+      - name: Verify (test + cross-stack interop)
+        working-directory: java
+        run: mvn -B -ntp verify
+
+      - name: Deploy to Maven Central
+        working-directory: java
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: mvn -B -ntp -Prelease deploy -DskipTests
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          name: "Java ${{ github.ref_name }}"
+          body: |
+            Maven Central artifacts:
+            - `io.github.davidalmeidac:sealed-env-core:${{ github.ref_name }}`
+            - `io.github.davidalmeidac:sealed-env-spring-boot-starter:${{ github.ref_name }}`
+
+            Once published you can pull them in:
+            ```xml
+            <dependency>
+              <groupId>io.github.davidalmeidac</groupId>
+              <artifactId>sealed-env-spring-boot-starter</artifactId>
+              <version>${{ github.ref_name }}</version>
+            </dependency>
+            ```

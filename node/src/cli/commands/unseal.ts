@@ -18,7 +18,8 @@ import { SealedEnvError } from '../../core/errors.js';
 import { verifyTotp } from '../../totp/totp.js';
 import { buildUnsealToken } from '../../totp/unsealToken.js';
 import { parseFlags } from '../utils/flags.js';
-import { DEFAULT_KDF_PARAMS } from '../../format/constants.js';
+import { DEFAULT_SCRYPT_PARAMS } from '../../format/constants.js';
+import type { KdfParams } from '../../core/types.js';
 
 export async function unsealCommand(argv: string[]): Promise<void> {
   const { values } = parseFlags(argv, {
@@ -51,13 +52,14 @@ export async function unsealCommand(argv: string[]): Promise<void> {
   // This means tokens are bound to (masterKey + this CLI session). For more
   // strict binding to the actual file, future versions will accept --file.
   //
-  // Note: the salt parameter to deriveMasterKey is passed plain — Argon2 doesn't
-  // care if it's pseudo-random, only that it's stable.
+  // Note: the salt parameter to deriveMasterKey is passed plain — scrypt only
+  // requires it to be stable, not random.
   const saltOpt = (values.salt as string) || '';
   const salt = saltOpt
     ? Buffer.from(saltOpt, 'hex')
     : Buffer.alloc(16, 0); // shared sentinel — SEE FUTURE WORK in SPEC §9
-  const derivedKey = deriveMasterKey(masterKey, salt, DEFAULT_KDF_PARAMS);
+  const kdfParams: KdfParams = { kind: 'scrypt', params: { ...DEFAULT_SCRYPT_PARAMS } };
+  const derivedKey = deriveMasterKey(masterKey, salt, kdfParams);
 
   const ttl = Math.min(Math.max(Number(values.ttl) || 60, 5), 600);
   const deployId = (values['deploy-id'] as string) || null;

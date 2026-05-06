@@ -16,6 +16,7 @@ export type SealedEnvErrorCode =
   | 'UNKNOWN_MODE'
   | 'MISSING_FIELD'
   | 'INVALID_FIELD'
+  | 'UNSUPPORTED_KDF'
   | 'MISSING_KEY'
   | 'MISSING_TOKEN'
   | 'TOKEN_EXPIRED'
