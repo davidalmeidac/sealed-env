@@ -46,8 +46,5 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Compile tests
-        run: npx tsc -p tsconfig.test.json
-
-      - name: Run tests
-        run: node --test --test-reporter=spec dist/tests/**/*.test.js
+      - name: Test
+        run: npm test
