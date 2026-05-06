@@ -14,7 +14,7 @@ with optional TOTP-based unsealing for production deploys.
 [![License](https://img.shields.io/badge/license-MIT-1a1612?style=flat-square&labelColor=c4471f)](LICENSE)
 [![Threat model](https://img.shields.io/badge/threat--model-public-1a1612?style=flat-square&labelColor=c4471f)](THREAT_MODEL.md)
 
-[Docs](docs/Home.md) · [Threat Model](THREAT_MODEL.md) · [File Format](SPEC.md) · [Security Policy](SECURITY.md)
+[Docs](docs/) · [Threat Model](THREAT_MODEL.md) · [File Format](SPEC.md) · [Security Policy](SECURITY.md) · [Landing](https://davidalmeidac.github.io/sealed-env/)
 
 </div>
 
@@ -233,14 +233,14 @@ TOTP. If the TOTP token leaks → useless for the next deploy (different commit)
 
 ## Documentation
 
-- 📖 [Getting started](docs/Getting-Started.md)
-- 🔐 [Threat model](THREAT_MODEL.md)
-- 📐 [File format spec](SPEC.md)
-- 🚀 [CI/CD integration recipes](docs/CI-CD-Recipes.md)
-- ⚙️ [API reference (Node)](docs/API-Node.md)
-- 🍃 [Spring Boot integration](docs/Spring-Boot.md)
-- 🔄 [Migration from dotenv / dotenvx](docs/Migration.md)
-- 🆘 [FAQ](docs/FAQ.md)
+- 📖 [Overview](docs/01-overview.md) — what `sealed-env` is and isn't
+- 🔐 [Threat model](docs/02-threat-model.md) — which 2024-2026 attacks it defends against
+- 🚀 [Quick start: Node](docs/03-quickstart-node.md)
+- 🍃 [Quick start: Java + Spring Boot](docs/04-quickstart-java.md)
+- 🔑 [Enterprise mode walkthrough](docs/05-enterprise-mode.md) — TOTP + deploy binding
+- 📐 [File format anatomy](docs/06-format-anatomy.md) — what's inside `.env.sealed`
+- 📋 [Format specification](SPEC.md) — the canonical wire format (v1)
+- 🛡️ [Security policy](SECURITY.md) — how to report vulnerabilities
 
 ## Project status
 
