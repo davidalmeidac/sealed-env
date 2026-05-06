@@ -21,12 +21,9 @@ the page you need.
 
 ## Diagrams
 
-All diagrams in these docs use [Mermaid](https://mermaid.js.org/) and render
-natively on GitHub. To preview locally:
+All diagrams in these docs are **plain ASCII**, rendered inside fenced
+code blocks. They display correctly in GitHub, in any terminal, in `cat`
+and `less`, and inside `git diff` — no JavaScript renderer required.
 
-```bash
-# with the GitHub CLI
-gh markdown-preview docs/01-overview.md
-
-# or any Markdown editor with Mermaid support
-```
+This is intentional: a security tool's docs should remain legible even
+when the rendering layer is unavailable or untrusted.

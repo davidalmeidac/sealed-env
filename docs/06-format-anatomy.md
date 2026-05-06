@@ -2,25 +2,24 @@
 
 A `.env.sealed` file is plain UTF-8 text with three sections.
 
-```mermaid
-flowchart TB
-    subgraph file [".env.sealed"]
-        L1["SEALED-ENV-V1 MODE=team"]:::magic
-        L2["KDF=scrypt"]:::meta
-        L3["KDF-PARAMS=N=32768,r=8,p=1"]:::meta
-        L4["SALT=<base64, 16 bytes>"]:::meta
-        L5["NONCE=<base64, 12 bytes>"]:::meta
-        L6["AAD-DIGEST=<base64, 32 bytes>"]:::meta
-        L7["HMAC=<base64, 32 bytes>"]:::meta
-        L8["CREATED=2026-05-06T03:46:14.953Z"]:::meta
-        L9[" "]:::sep
-        L10["<base64 ciphertext + GCM tag>"]:::body
-    end
-
-    classDef magic fill:#ffeb3b,stroke:#998
-    classDef meta fill:#e3f2fd,stroke:#369
-    classDef sep fill:#eee,stroke:#999,stroke-dasharray: 3 3
-    classDef body fill:#e8f5e9,stroke:#363
+```
+   .env.sealed
+   ───────────────────────────────────────────────────────────
+   ┌─────────────────────────────────────────────────────────┐
+   │  SEALED-ENV-V1 MODE=team                                │ ◀── magic line
+   ├─────────────────────────────────────────────────────────┤
+   │  KDF=scrypt                                             │
+   │  KDF-PARAMS=N=32768,r=8,p=1                             │
+   │  SALT=<base64, 16 bytes>                                │   metadata
+   │  NONCE=<base64, 12 bytes>                               │   (KEY=VALUE
+   │  AAD-DIGEST=<base64, 32 bytes>                          │    lines, in
+   │  HMAC=<base64, 32 bytes>                                │    canonical
+   │  CREATED=2026-05-06T03:46:14.953Z                       │    order)
+   ├─────────────────────────────────────────────────────────┤
+   │                                                         │ ◀── empty
+   ├─────────────────────────────────────────────────────────┤    separator
+   │  <base64 ciphertext + GCM tag>                          │ ◀── body
+   └─────────────────────────────────────────────────────────┘
 ```
 
 ## The three sections
@@ -62,17 +61,23 @@ The Additional Authenticated Data is the magic line + metadata fields,
 **excluding** `AAD-DIGEST` and `HMAC`, joined by `\n` with no trailing
 newline.
 
-```mermaid
-flowchart LR
-    M["magic line"] --> J["join with \\n"]
-    K["KDF, KDF-PARAMS"] --> J
-    S["SALT, NONCE"] --> J
-    T["TOTP-VERIFIER, CHALLENGE-BIND<br/>(enterprise only)"] --> J
-    C["CREATED, ROTATED"] --> J
-    J --> AAD["AAD bytes"]
-    AAD --> A1["AES-GCM<br/>setAAD(...)"]
-    AAD --> A2["SHA-256 → AAD-DIGEST<br/>(defense in depth)"]
-    AAD --> A3["HMAC input prefix<br/>(team / enterprise)"]
+```
+   inputs                                outputs
+   ──────                                ───────
+
+   magic line          ─┐
+                        │
+   KDF, KDF-PARAMS     ─┤
+                        │   join with \n          ┌─▶ AES-GCM
+   SALT, NONCE         ─┼──▶ ──────────▶ AAD ────┤    setAAD(...)
+                        │                         │
+   TOTP-VERIFIER,      ─┤                         ├─▶ SHA-256
+   CHALLENGE-BIND      ─┤                         │   ─▶ AAD-DIGEST
+   (enterprise only)    │                         │      (defense in
+                        │                         │       depth)
+   CREATED, ROTATED    ─┘                         │
+                                                  └─▶ HMAC input prefix
+                                                      (team / enterprise)
 ```
 
 This means **any tampering with metadata** breaks the GCM tag and (for

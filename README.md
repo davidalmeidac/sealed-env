@@ -44,6 +44,42 @@ pipeline is fully compromised, attackers cannot decrypt without the operator's p
 - A **published threat model** that says exactly what we defend against and what we don't.
 - A **CLI** (`npx sealed-env`) and a **Spring Boot starter** (Java).
 
+## Cross-stack architecture
+
+```
+   ┌─────────────────────────┐         ┌─────────────────────────┐
+   │  Node side              │         │  Java side              │
+   │  ────────────           │         │  ────────────           │
+   │  • CLI: sealed-env seal │         │  • SealedEnv core lib   │
+   │  • npm: sealed-env      │         │  • Spring Boot starter  │
+   │  • writes KDF=scrypt    │         │  • writes KDF=argon2id  │
+   └────────────┬────────────┘         └────────────┬────────────┘
+                │                                   │
+                │  both speak SEALED-ENV-V1         │
+                │  (byte-for-byte spec compliance)  │
+                ▼                                   ▼
+            ┌────────────────────────────────────────┐
+            │            .env.sealed                 │
+            │  ───────────────────────────           │
+            │  SEALED-ENV-V1 MODE=team               │
+            │  KDF=<scrypt|argon2id>                 │
+            │  KDF-PARAMS=...   SALT=...             │
+            │  NONCE=...        AAD-DIGEST=...       │
+            │  HMAC=...         CREATED=2026-...     │
+            │                                        │
+            │  <base64 ciphertext + GCM tag>         │
+            └────────────────────────────────────────┘
+                ▲                                   ▲
+                │       a file written by one       │
+                │       stack decrypts in the       │
+                │       other — no conversion       │
+                │                                   │
+   ┌────────────┴────────────┐         ┌────────────┴────────────┐
+   │  Node app reads it      │         │  Java app reads it      │
+   │  (loadSealed())         │         │  (Spring Environment)   │
+   └─────────────────────────┘         └─────────────────────────┘
+```
+
 ## 30-second tour (Node)
 
 ```bash
@@ -84,6 +120,43 @@ sealed-env:
 ```java
 @Value("${stripe.api.key}")  // resolved transparently from .env.sealed
 private String stripeKey;
+```
+
+## The three modes — visualized
+
+```
+   basic                    team                     enterprise
+   ─────                    ────                     ──────────
+
+   .env.sealed              .env.sealed              .env.sealed
+        │                        │                        │
+        ▼                        ▼                        ▼
+   ┌─────────┐              ┌─────────┐              ┌─────────┐
+   │ AES-GCM │              │  HMAC   │              │  HMAC   │
+   │ decrypt │              │ verify  │              │ verify  │
+   └────┬────┘              └────┬────┘              └────┬────┘
+        │                        ▼                        ▼
+        ▼                   ┌─────────┐              ┌─────────┐
+   plaintext                │ AES-GCM │              │  TOTP   │
+                            │ decrypt │              │  token  │
+                            └────┬────┘              │ verify  │
+                                 ▼                   └────┬────┘
+                            plaintext                     ▼
+                                                     ┌─────────┐
+   ▲                        ▲                        │ deploy  │
+   │ master_key             │ + signing_key          │  bind   │
+                                                     └────┬────┘
+                                                          ▼
+                                                     ┌─────────┐
+                                                     │ AES-GCM │
+                                                     │ decrypt │
+                                                     └────┬────┘
+                                                          ▼
+                                                     plaintext
+
+                                                     ▲
+                                                     │ + totp_secret
+                                                     │ + deploy_id
 ```
 
 ## The three modes

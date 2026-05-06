@@ -22,12 +22,26 @@ SEALED_ENV_KEY=$(cat master.key) npx sealed-env seal .env
 The `.env.sealed` file is plain UTF-8 text — `git diff` will show metadata
 changes line by line.
 
-```mermaid
-flowchart LR
-    A[".env<br/>(plaintext)"] --> B["sealed-env seal"]
-    K["SEALED_ENV_KEY"] -.-> B
-    B --> C[".env.sealed<br/>(commitable)"]
-    C --> D["git commit"]
+```
+   ┌──────────────┐                ┌──────────────────┐
+   │  .env        │                │ SEALED_ENV_KEY   │
+   │  (plaintext) │                │ (env var)        │
+   └──────┬───────┘                └─────────┬────────┘
+          │                                  │
+          └────────────┐         ┌───────────┘
+                       ▼         ▼
+                 ┌──────────────────┐
+                 │ sealed-env seal  │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │  .env.sealed     │
+                 │  (commitable)    │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                     git commit
 ```
 
 ## Load at startup
@@ -43,27 +57,40 @@ console.log(process.env.API_KEY); // → real value
 
 ## Mode selection
 
-```mermaid
-stateDiagram-v2
-    [*] --> basic: default
-    basic --> team: add signing key
-    team --> enterprise: add TOTP secret
-    enterprise --> enterprise: rotate keys
-    note right of basic
-      Single master key.
-      Good for: solo dev,
-      private repos.
-    end note
-    note right of team
-      Master + signing keys.
-      HMAC integrity.
-      Good for: shared repos.
-    end note
-    note right of enterprise
-      Adds TOTP unseal token
-      and deploy challenge.
-      Good for: production.
-    end note
+```
+   ┌───────────────────────┐
+   │       basic           │   default
+   │   ─────────────────   │
+   │   Single master key.  │
+   │   Good for: solo dev, │
+   │   private repos.      │
+   └──────────┬────────────┘
+              │ + signing key
+              ▼
+   ┌───────────────────────┐
+   │       team            │
+   │   ─────────────────   │
+   │   master + signing.   │
+   │   HMAC integrity.     │
+   │   Good for: shared    │
+   │   repos, CI.          │
+   └──────────┬────────────┘
+              │ + TOTP secret
+              ▼
+   ┌───────────────────────┐
+   │     enterprise        │
+   │   ─────────────────   │
+   │   Adds TOTP unseal    │
+   │   token + deploy      │
+   │   challenge.          │
+   │   Good for: prod.     │
+   └──────────┬────────────┘
+              │
+              │ rotate keys ──┐
+              │               │
+              └───────────────┘
+                  (recommended every 90 days
+                   or after any incident)
 ```
 
 To upgrade modes:

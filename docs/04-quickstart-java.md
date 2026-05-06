@@ -28,19 +28,36 @@ The starter auto-registers an `EnvironmentPostProcessor` that runs **before**
 property binding, so `@Value` and `@ConfigurationProperties` see the decrypted
 values.
 
-```mermaid
-sequenceDiagram
-    participant JVM as JVM startup
-    participant Boot as Spring Boot
-    participant SE as SealedEnvEnvironmentPostProcessor
-    participant Env as Spring Environment
-    participant App as Your beans
-
-    JVM->>Boot: SpringApplication.run()
-    Boot->>SE: postProcessEnvironment()
-    SE->>SE: read .env.sealed<br/>decrypt with SEALED_ENV_KEY
-    SE->>Env: addPropertySource("sealedEnv", ...)
-    Boot->>App: @Value injection<br/>(sees decrypted values)
+```
+   JVM startup
+       │
+       ▼
+   ┌─────────────────────────┐
+   │ SpringApplication.run() │
+   └────────────┬────────────┘
+                │  postProcessEnvironment()
+                ▼
+   ┌──────────────────────────────────────┐
+   │ SealedEnvEnvironmentPostProcessor    │
+   │ ──────────────────────────────────── │
+   │  1. read .env.sealed                 │
+   │  2. decrypt with SEALED_ENV_KEY      │
+   │  3. wipe master key from memory      │
+   └────────────┬─────────────────────────┘
+                │  addPropertySource("sealedEnv", ...)
+                ▼
+   ┌──────────────────────────────────────┐
+   │      Spring Environment              │
+   │   (sealedEnv source registered)      │
+   └────────────┬─────────────────────────┘
+                │
+                ▼
+   ┌──────────────────────────────────────┐
+   │  your beans                          │
+   │  ─────────────────────────────────   │
+   │  @Value("${API_KEY}")                │
+   │  ─▶ sees decrypted value             │
+   └──────────────────────────────────────┘
 ```
 
 ### Configure
@@ -85,11 +102,27 @@ This is automatic. The `.env.sealed` file format is identical across both
 implementations. The Node CLI writes `KDF=scrypt` (Node 22 stdlib has no
 Argon2id); the Java reader supports both Argon2id and scrypt natively.
 
-```mermaid
-flowchart LR
-    NODE["Node sealing<br/>(scrypt)"] --> FILE[".env.sealed"]
-    JAVA["Java sealing<br/>(argon2id)"] --> FILE
-    FILE --> NREAD["Node reads"]
-    FILE --> JREAD["Java reads"]
-    style FILE fill:#fff8e7
+```
+   Node writer                                  Java writer
+   (KDF=scrypt)                                 (KDF=argon2id)
+        │                                            │
+        └──────────────┐              ┌──────────────┘
+                       ▼              ▼
+                  ┌────────────────────────┐
+                  │     .env.sealed        │
+                  │   (single canonical    │
+                  │    v1 wire format)     │
+                  └────────┬───────┬───────┘
+                           │       │
+              ┌────────────┘       └─────────────┐
+              ▼                                  ▼
+       ┌─────────────┐                    ┌─────────────┐
+       │ Node reads  │                    │ Java reads  │
+       │ either KDF  │* (only scrypt)     │ either KDF  │
+       └─────────────┘                    └─────────────┘
+
+   * Node 22 stdlib has no Argon2id. If a Java-written file with
+     KDF=argon2id reaches a Node-only consumer, the reader surfaces
+     UNSUPPORTED_KDF with a clear message; v0.2.x will ship a wasm
+     Argon2id to close this gap.
 ```

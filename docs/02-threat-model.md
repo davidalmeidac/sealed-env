@@ -6,44 +6,30 @@ This page maps each attack class to the mode that defends against it.
 
 ## Coverage matrix
 
-```mermaid
-flowchart LR
-    subgraph attacks ["Real-world attacks (2024-2026)"]
-        A1["Shai-Hulud npm worm<br/>(self-replicating malware)"]
-        A2["tj-actions/changed-files<br/>(GitHub Action supply chain)"]
-        A3["GhostAction campaign<br/>(stolen CI tokens)"]
-        A4["Spring Boot heapdump<br/>CVE-2024-22243 et al."]
-        A5["Backup leaks<br/>(S3 bucket misconfigs)"]
-        A6["Insider screen-shot<br/>of .env"]
-        A7["TOTP AitM phishing<br/>(EvilProxy)"]
-    end
+```
+  Real-world attacks (2024-2026)                      sealed-env defenses
+  ──────────────────────────────                      ───────────────────
 
-    subgraph defenses ["sealed-env defenses"]
-        D1["basic: AES-256-GCM"]
-        D2["team: HMAC + key separation"]
-        D3["enterprise: TOTP unseal token"]
-        D4["enterprise + CHALLENGE-BIND<br/>deploy-bound"]
-    end
+  Shai-Hulud npm worm       ──────────────────▶       basic
+  (self-replicating malware)                          (AES-256-GCM)
 
-    A1 --> D1
-    A2 --> D4
-    A3 --> D4
-    A4 --> D1
-    A5 --> D1
-    A6 --> D2
-    A7 --> D4
+  tj-actions/changed-files  ──────────────────▶       enterprise + CHALLENGE-BIND
+  (GitHub Action supply chain)                        (deploy-bound token)
 
-    style A1 fill:#fee
-    style A2 fill:#fee
-    style A3 fill:#fee
-    style A4 fill:#fee
-    style A5 fill:#fee
-    style A6 fill:#fee
-    style A7 fill:#fee
-    style D1 fill:#efe
-    style D2 fill:#efe
-    style D3 fill:#efe
-    style D4 fill:#efe
+  GhostAction campaign      ──────────────────▶       enterprise + CHALLENGE-BIND
+  (stolen CI tokens)                                  (deploy-bound token)
+
+  Spring Boot heapdump      ──────────────────▶       basic
+  CVE-2024-22243 et al.                               (key wiped after derivation)
+
+  Backup leaks              ──────────────────▶       basic
+  (S3 bucket misconfigs)                              (ciphertext only on disk)
+
+  Insider screenshot        ──────────────────▶       team
+  of .env                                             (HMAC + key separation)
+
+  TOTP AitM phishing        ──────────────────▶       enterprise + CHALLENGE-BIND
+  (EvilProxy)                                         (token bound to commit SHA)
 ```
 
 ## Detail per attack
@@ -68,16 +54,29 @@ environment to the attacker. The 2025 incident exposed thousands of repos.
 is bound to one specific commit SHA; replaying it against a different
 deploy fails with `DEPLOY_MISMATCH`.
 
-```mermaid
-sequenceDiagram
-    participant Attacker
-    participant CI as Compromised CI step
-    participant App
-    Attacker->>CI: harvest SEALED_ENV_UNSEAL_TOKEN
-    Note over Attacker: token has<br/>deploy_id=abc123<br/>and ttl=60s
-    Attacker->>App: replay token to<br/>deploy "xyz789"
-    App->>App: verify deploy_id<br/>abc123 != xyz789
-    App-->>Attacker: DEPLOY_MISMATCH
+```
+   Attacker          Compromised CI step           Production app
+   ────────          ───────────────────           ──────────────
+
+       │                       │                         │
+       │   harvest             │                         │
+       │   SEALED_ENV_         │                         │
+       │   UNSEAL_TOKEN        │                         │
+       │ ◀────────────────────                          │
+       │                                                 │
+       │   token has:                                    │
+       │     deploy_id = abc123                          │
+       │     ttl       = 60s                             │
+       │                                                 │
+       │   replay token to deploy "xyz789"               │
+       │ ───────────────────────────────────────────────▶
+       │                                                 │
+       │                                          verify deploy_id
+       │                                          abc123 != xyz789
+       │                                                 │
+       │           ╔═══════════════════════╗            │
+       │ ◀─────────║   DEPLOY_MISMATCH     ║───────────┘
+                   ╚═══════════════════════╝
 ```
 
 ### 3. Spring heap-dump CVEs

@@ -11,36 +11,77 @@ Enterprise mode adds two layers on top of `team`:
 
 ## End-to-end deploy flow
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Op as Operator (laptop)
-    participant CI as CI/CD pipeline
-    participant App as Production app
-    participant Auth as Authenticator app
+```
+   Operator (laptop)      Authenticator      CI/CD pipeline      Production app
+   ─────────────────      ─────────────      ──────────────      ──────────────
 
-    Note over Op: about to deploy<br/>commit abc123
-    Op->>Auth: open authenticator
-    Auth-->>Op: 6-digit code (e.g. 482917)
-    Op->>Op: sealed-env unseal<br/>--deploy-id abc123<br/>--totp 482917
-    Op-->>Op: prints unseal token<br/>(valid 60 seconds)
-    Op->>CI: paste token into<br/>SEALED_ENV_UNSEAL_TOKEN
-    CI->>App: deploy with env vars<br/>SEALED_ENV_KEY<br/>SEALED_ENV_SIGNING_KEY<br/>SEALED_ENV_UNSEAL_TOKEN<br/>SEALED_ENV_DEPLOY_ID=abc123
-    App->>App: start, read .env.sealed
-    App->>App: verify HMAC ✓<br/>verify token signature ✓<br/>verify deploy_id matches ✓<br/>verify TOTP-VERIFIER commitment ✓
-    App->>App: AES-GCM decrypt
-    App-->>App: ✓ values available
-    Note over App: token expires<br/>60 seconds later<br/>cannot be replayed
+   about to deploy
+   commit abc123
+        │
+        │  open authenticator
+        │ ────────────────────▶ │
+        │                       │
+        │  6-digit code         │
+        │  (e.g. 482917)        │
+        │ ◀──────────────────── │
+        │
+        │  $ sealed-env unseal \
+        │      --deploy-id abc123 \
+        │      --totp 482917
+        │
+        │  ────▶ prints unseal token
+        │        (valid 60 seconds)
+        │
+        │  paste token into
+        │  SEALED_ENV_UNSEAL_TOKEN
+        │ ──────────────────────────────▶ │
+        │                                 │
+        │                                 │  deploy with env vars:
+        │                                 │    SEALED_ENV_KEY
+        │                                 │    SEALED_ENV_SIGNING_KEY
+        │                                 │    SEALED_ENV_UNSEAL_TOKEN
+        │                                 │    SEALED_ENV_DEPLOY_ID=abc123
+        │                                 │
+        │                                 │ ─────────────────────────────────▶ │
+        │                                 │                                    │
+        │                                 │                          1. start, read .env.sealed
+        │                                 │                          2. verify HMAC      ✓
+        │                                 │                          3. verify token sig ✓
+        │                                 │                          4. verify deploy_id ✓
+        │                                 │                          5. verify TOTP-VERIFIER
+        │                                 │                             commitment        ✓
+        │                                 │                          6. AES-GCM decrypt   ✓
+        │                                 │                                    │
+        │                                 │                                    ▼
+        │                                 │                          ╔════════════════╗
+        │                                 │                          ║ values exposed ║
+        │                                 │                          ║ to Environment ║
+        │                                 │                          ╚════════════════╝
+        │                                 │
+        │                                 │   60s later: token expires
+        │                                 │   ─▶ cannot be replayed
 ```
 
 ## What the token contains
 
-```mermaid
-flowchart TB
-    T["usl_<header>.<payload>.<sig>"]
-    T --> H["header:<br/>{ alg: HS256, typ: sealed-env-unseal/v1 }"]
-    T --> P["payload:<br/>{ iss, iat, exp,<br/>totp_secret,<br/>deploy_id,<br/>ops_id }"]
-    T --> S["signature:<br/>HMAC-SHA256(<br/>derived_key,<br/>header.payload)"]
+```
+   usl_<header>.<payload>.<signature>
+        │           │           │
+        │           │           └──▶ HMAC-SHA256(
+        │           │                   derived_key,
+        │           │                   header.payload)
+        │           │
+        │           └──▶ payload (JSON, base64url):
+        │                  iss          : sealed-env-cli
+        │                  iat          : <unix-seconds>
+        │                  exp          : <iat + 60>
+        │                  totp_secret  : <base64>
+        │                  deploy_id    : <commit-sha or null>
+        │                  ops_id       : <random uuid v4>
+        │
+        └──▶ header (JSON, base64url):
+               alg : HS256
+               typ : sealed-env-unseal/v1
 ```
 
 Key properties:
@@ -55,27 +96,34 @@ Key properties:
 
 ## What this protects against
 
-```mermaid
-flowchart LR
-    subgraph captured ["Attacker captures token"]
-        C["unseal_token<br/>deploy_id=abc123<br/>exp=now+60s"]
-    end
+```
+   Attacker captures token              Attempted attack
+   ───────────────────────              ────────────────
 
-    subgraph attacks ["Attack attempts"]
-        A1["Replay against<br/>different deploy"]
-        A2["Wait and replay later"]
-        A3["Use master_key<br/>to mint new token"]
-    end
-
-    C --> A1
-    C --> A2
-    C --> A3
-
-    A1 -->|"DEPLOY_MISMATCH"| F["fail"]
-    A2 -->|"TOKEN_EXPIRED"| F
-    A3 -->|"can't sign without<br/>file's salt"| F
-
-    style F fill:#400,color:#fff
+   ┌──────────────────────┐             1. Replay against
+   │  unseal_token        │ ────────▶      different deploy
+   │                      │                  │
+   │  deploy_id = abc123  │                  ▼
+   │  exp       = now+60s │             ╔════════════════════╗
+   │                      │ ────────▶   ║  DEPLOY_MISMATCH   ║
+   │                      │             ╚════════════════════╝
+   │                      │
+   │                      │             2. Wait and replay
+   │                      │ ────────▶      later
+   │                      │                  │
+   │                      │                  ▼
+   │                      │             ╔════════════════════╗
+   │                      │ ────────▶   ║  TOKEN_EXPIRED     ║
+   │                      │             ╚════════════════════╝
+   │                      │
+   │                      │             3. Use master_key
+   │                      │ ────────▶      to mint new token
+   │                      │                  │
+   │                      │                  ▼ can't sign without
+   │                      │                    file's salt
+   │                      │             ╔════════════════════╗
+   └──────────────────────┘ ────────▶   ║  SIGNATURE_INVALID ║
+                                        ╚════════════════════╝
 ```
 
 ## When to use it
