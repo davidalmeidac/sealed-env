@@ -63,9 +63,13 @@ describe('team mode', () => {
     const masterKey = Buffer.from('a'.repeat(64), 'hex');
     const signingKey = Buffer.from('b'.repeat(64), 'hex');
     const { serialized } = seal({ plaintext: 'A=1\n', masterKey, signingKey, mode: 'team' });
-    const tampered = serialized.replace(/HMAC=([A-Za-z0-9+/=]+)/, (_, h) =>
-      'HMAC=A' + h.substring(1),
-    );
+    // Flip the first byte of the HMAC. Pick a replacement that is guaranteed
+    // to differ from whatever was there (otherwise this test would be flaky
+    // ~1/64 of the time when the original first char happened to match).
+    const tampered = serialized.replace(/HMAC=([A-Za-z0-9+/=]+)/, (_, h) => {
+      const first = h[0] === 'A' ? 'B' : 'A';
+      return 'HMAC=' + first + h.substring(1);
+    });
     const file = parseSealedFile(tampered);
     assert.throws(() => unseal({ file, masterKey, signingKey }), /corrupted, tampered/);
   });

@@ -262,6 +262,7 @@ If your team needs the Doppler/Vault feature set, use them. `sealed-env` is the 
 - 🍃 [Quick start: Java + Spring Boot](docs/04-quickstart-java.md)
 - 🔑 [Enterprise mode walkthrough](docs/05-enterprise-mode.md) — TOTP + deploy binding
 - 📐 [File format anatomy](docs/06-format-anatomy.md) — what's inside `.env.sealed`
+- 🛠️ [Operational guide](docs/07-operational-guide.md) — for sysadmins, managers, and founders (no code)
 - 📋 [Format specification](SPEC.md) — the canonical wire format (v1)
 - 🛡️ [Security policy](SECURITY.md) — how to report vulnerabilities
 

@@ -11,6 +11,7 @@ the page you need.
 4. [Quick start: Java + Spring Boot](./04-quickstart-java.md)
 5. [Enterprise mode](./05-enterprise-mode.md) — TOTP + deploy challenge
 6. [File format anatomy](./06-format-anatomy.md) — what's inside `.env.sealed`
+7. [Operational guide](./07-operational-guide.md) — for sysadmins, managers, and founders (no code)
 
 ## Reference
 
