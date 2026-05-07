@@ -1,6 +1,6 @@
 {
   "name": "sealed-env",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "description": "Encrypted .env files with optional TOTP unsealing for production deploys. Cross-stack with the Java port. One minimal CLI dependency.",
   "keywords": [
     "dotenv",

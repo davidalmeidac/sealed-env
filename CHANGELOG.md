@@ -14,6 +14,92 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.1.0-alpha.5] — 2026-05-07
+
+Polish + ops ergonomics on top of the alpha.4 security fix. **No wire-format
+changes** — files sealed by `0.1.0-alpha.4` decrypt cleanly on `0.1.0-alpha.5`
+and vice versa.
+
+### Added
+
+- **`sealed-env exec [--file <path>] [--override] -- <command> [args...]`** —
+  decrypt the sealed file in memory and run a command with each `KEY=value`
+  injected into its environment. The plaintext never lands on disk. Host env
+  wins over sealed values by default; pass `--override` to flip that. Forwards
+  SIGINT/SIGTERM to the child and propagates its exit code. Replaces the
+  fragile `sealed-env decrypt > .env && command && rm .env` recipe.
+
+  ```sh
+  sealed-env exec --file .env.sealed -- node server.js
+  sealed-env exec --file .env.sealed -- npm start
+  ```
+
+- **`sealed-env rotate <file>`** — re-seal in place with a fresh salt and
+  nonce without changing any value. Invalidates any unseal token previously
+  minted for this file. Use after a suspected token leak, on a regular
+  rotation cadence, or after offboarding an operator. Backs up to `<file>.bak`
+  same as `set`/`edit`.
+
+- **`sealed-env doctor [<file>]`** — non-destructive diagnostic that validates
+  env vars + sealed file + decrypt roundtrip WITHOUT printing any secret
+  values. Each env var reports byte length and a short SHA-256 fingerprint
+  (4 + 4 hex chars) — enough to tell two machines have the same key, useless
+  to anyone observing the log. Safe to paste into CI logs and support threads.
+
+- **Shell-aware `MISSING_KEY` error messages** — when an env var is missing,
+  the error now includes the correct syntax for the user's shell. On Windows
+  it shows PowerShell + cmd.exe + Git Bash side by side, with a note about
+  the classic footgun: `set X=Y` in PowerShell creates a PowerShell variable,
+  NOT an env var, so child processes can't see it. Propagated to all six
+  call sites (`encrypt`, `decrypt`, `unseal`, `set`, `edit`, `doctor`,
+  `exec`, `rotate`, `get`, `diff`).
+
+### Changed
+
+- **`qrcode-terminal` is now lazy-loaded.** It's pulled in via `createRequire`
+  only when `init --mode enterprise` actually renders a QR. Restores the
+  "core has zero third-party imports" property for `seal`/`unseal`/`decrypt`
+  and all the operational commands. If the module ever becomes unavailable,
+  the QR step falls back to plain URI output instead of crashing.
+
+- **CI: `npm audit --audit-level=high --omit=dev`** runs on a single matrix
+  cell (Linux + Node 22). Fails CI if any production dep has a high-severity
+  advisory. Catches CVEs faster than waiting for the next Dependabot scan.
+
+- **Workflow `permissions:` blocks** added explicitly to `node-ci.yml` and
+  `node-release.yml` (CodeQL: "Workflow does not contain permissions"). All
+  five workflows now scope `GITHUB_TOKEN` to the minimum needed.
+
+### Fixed
+
+- **CodeQL: incomplete regex escaping** in `.gitignore` membership check
+  (`init` command). The previous code only escaped `.` in user-provided
+  entries; replaced with a Set lookup over trimmed lines. Zero regex
+  surface, simpler, correct for any future entry.
+
+### Documentation
+
+- **THREAT_MODEL.md** gained section 6 ("Token-payload exposure — lesson
+  from sealed-env's own CVE") and matrix entry T13 documenting the
+  `0.1.0-alpha.{1,2,3}` JWS-payload TOTP-secret leak. Captures three
+  takeaways for future contributors:
+  - JWT/JWS payloads are public — signature attests to integrity, not
+    confidentiality.
+  - Carry derived material in tokens, never raw secrets.
+  - Use negative regression assertions ("the token MUST NOT contain X")
+    to surface design regressions.
+
+### Dependencies
+
+- `bouncycastle` 1.78.1 → **1.84** — patches CVE-2026-5598 (Frodo timing
+  channel) and CVE-2026-0636 (LDAP injection). sealed-env uses BC only
+  for Argon2id and never touches Frodo or LDAP code paths; bumping is
+  hygiene for downstream Dependabot status.
+- `assertj-core` 3.26.3 → **3.27.7** — patches CVE-2026-24400 (XXE in
+  `isXmlEqualTo`). Test-scope only and we don't process XML in tests.
+
+---
+
 ## [0.1.0-alpha.4] — 2026-05-07
 
 > **🚨 SECURITY: this release fixes a critical issue in `enterprise` mode.

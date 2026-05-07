@@ -29,6 +29,7 @@ import { createHash } from 'node:crypto';
 import { unseal } from '../../core/api.js';
 import { parseSealedFile } from '../../format/parser.js';
 import { SealedEnvError } from '../../core/errors.js';
+import { shellHintFor } from '../utils/io.js';
 
 interface CheckResult {
   ok: boolean;
@@ -180,7 +181,12 @@ function checkEnv(
 
 function readKey(varName: string): Buffer {
   const v = process.env[varName];
-  if (!v) throw new SealedEnvError('MISSING_KEY', `${varName} is required`);
+  if (!v) {
+    throw new SealedEnvError(
+      'MISSING_KEY',
+      `environment variable ${varName} is required.\n${shellHintFor(varName)}`,
+    );
+  }
   if (/^[0-9a-fA-F]+$/.test(v) && v.length % 2 === 0) return Buffer.from(v, 'hex');
   if (/^[A-Za-z0-9+/]+={0,2}$/.test(v)) return Buffer.from(v, 'base64');
   throw new SealedEnvError('CONFIG_ERROR', `${varName} must be hex or base64`);

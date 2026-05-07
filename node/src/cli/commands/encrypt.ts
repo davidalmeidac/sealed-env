@@ -8,6 +8,7 @@ import { resolve } from 'node:path';
 import { seal } from '../../core/api.js';
 import { SealedEnvError } from '../../core/errors.js';
 import type { Mode } from '../../core/types.js';
+import { shellHintFor } from '../utils/io.js';
 import { parseFlags } from '../utils/flags.js';
 
 export function encryptCommand(argv: string[]): void {
@@ -63,7 +64,10 @@ export function encryptCommand(argv: string[]): void {
 function readEnvKey(varName: string, base32 = false): Buffer {
   const v = process.env[varName];
   if (!v) {
-    throw new SealedEnvError('MISSING_KEY', `environment variable ${varName} is required`);
+    throw new SealedEnvError(
+      'MISSING_KEY',
+      `environment variable ${varName} is required.\n${shellHintFor(varName)}`,
+    );
   }
   if (base32) {
     return decodeBase32(v);

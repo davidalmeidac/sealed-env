@@ -35,7 +35,7 @@ export function readKeyFromEnv(varName: string): Buffer {
  * syntaxes on Windows to cover the user no matter which shell they
  * are running in.
  */
-function shellHintFor(varName: string): string {
+export function shellHintFor(varName: string): string {
   const example = '<paste-the-hex-or-base64-key-here>';
   if (process.platform === 'win32') {
     return [

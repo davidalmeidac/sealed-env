@@ -18,6 +18,8 @@ import { setCommand } from './commands/set.js';
 import { editCommand } from './commands/edit.js';
 import { diffCommand } from './commands/diff.js';
 import { doctorCommand } from './commands/doctor.js';
+import { execCommand } from './commands/exec.js';
+import { rotateCommand } from './commands/rotate.js';
 import { SealedEnvError } from '../core/errors.js';
 
 const COMMANDS: Record<string, (argv: string[]) => Promise<void> | void> = {
@@ -29,6 +31,8 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<void> | void> = {
   edit: editCommand,
   diff: diffCommand,
   unseal: unsealCommand,
+  exec: execCommand,
+  rotate: rotateCommand,
   doctor: doctorCommand,
   help: helpCommand,
   version: versionCommand,
@@ -101,6 +105,20 @@ function helpCommand(): void {
       '  diff <old.env.sealed> <new.env.sealed> [--show-values]',
       '      Show which keys were added/removed/changed. Values are',
       '      hidden by default; pass --show-values to reveal them.',
+      '  rotate <file.env.sealed>',
+      '      Re-seal with a fresh salt + nonce without changing values.',
+      '      Invalidates any unseal tokens previously minted for this file.',
+      '      Use after a suspected token leak or on a regular cadence.',
+      '',
+      'Run a command with sealed env vars injected:',
+      '  exec [--file <.env.sealed>] [--override] -- <command> [args...]',
+      '      Decrypt the file in memory and run <command> with each',
+      '      KEY=value injected into its environment. The plaintext',
+      '      never lands on disk. Host env wins by default; pass',
+      '      --override to let the sealed file win. Forwards Ctrl+C',
+      '      and propagates the child exit code.',
+      '',
+      '      Example:  sealed-env exec --file .env.sealed -- node server.js',
       '',
       'Production deploys (enterprise mode only):',
       '  unseal --file <.env.sealed> [--totp <code>] [--deploy-id <sha>] [--ttl 60]',
