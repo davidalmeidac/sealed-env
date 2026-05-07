@@ -28,6 +28,43 @@ import { createInterface } from 'node:readline/promises';
 
 import { SealedEnvError } from '../../core/errors.js';
 import { parseDotenv } from '../utils/io.js';
+
+/**
+ * Project-level marker that opts this directory into keychain-backed
+ * auto-loading. Without this file (or `SEALED_ENV_USE_KEYCHAIN=1` in
+ * the env), the auto-load helper skips the keychain entirely — so
+ * users who never opt in pay zero overhead.
+ *
+ * Safe to commit: contains no secrets, just the choice of backend.
+ * Different team members can then independently `keychain push` their
+ * own credentials and the project's behavior stays consistent.
+ */
+const MARKER_FILE = '.sealed-env.json';
+
+function writeMarker(backendLabel: string): void {
+  const path = resolve(MARKER_FILE);
+  const cfg = {
+    $schema: 'https://github.com/davidalmeidac/sealed-env/blob/main/SPEC.md',
+    storage: 'keychain' as const,
+    backend: backendLabel,
+    createdAt: new Date().toISOString(),
+    note:
+      'Created by `sealed-env keychain push`. Tells the auto-loader to ' +
+      'check the OS keychain. Safe to commit. Remove with `sealed-env keychain clear`.',
+  };
+  writeFileSync(path, JSON.stringify(cfg, null, 2) + '\n', { mode: 0o644 });
+}
+
+function removeMarker(): void {
+  const path = resolve(MARKER_FILE);
+  if (existsSync(path)) {
+    try {
+      unlinkSync(path);
+    } catch {
+      /* ignore */
+    }
+  }
+}
 import {
   KEYCHAIN_NAMES,
   detectBackend,
@@ -109,6 +146,12 @@ async function pushCommand(
     process.stdout.write(`  [✓] ${name}\n`);
   }
 
+  // Drop the opt-in marker so future commands check the keychain.
+  // Without this, the auto-loader doesn't even spawn the keychain
+  // backend (saves ~300ms / command for users who never opted in).
+  writeMarker(backend.label);
+  process.stdout.write(`✓ Wrote ${MARKER_FILE} (commit it to standardize the team)\n`);
+
   // Offer to delete .env.local. The whole point of pushing is to stop
   // having a plaintext copy on disk. We confirm explicitly because
   // accidentally deleting your only copy of the keys could lock the
@@ -182,15 +225,31 @@ async function pullCommand(
     );
   }
   writeFileSync(path, lines.join('\n') + '\n', { mode: 0o600 });
+  // Pull means "I want the .env.local back" — drop the keychain marker
+  // so auto-load uses the file copy from now on. Keychain entries
+  // remain stored unless user runs `clear` separately.
+  removeMarker();
   process.stdout.write(
     `✓ Pulled ${count} entr${count === 1 ? 'y' : 'ies'} from ${backend.label} → .env.local (mode 0600)\n`,
+  );
+  process.stdout.write(
+    `✓ Removed ${MARKER_FILE} — auto-load will read from .env.local now\n`,
+  );
+  process.stdout.write(
+    `(keychain entries kept; run "sealed-env keychain clear" if you want them gone too)\n`,
   );
 }
 
 function statusCommand(
   backend: ReturnType<typeof detectBackend> & {},
 ): void {
-  process.stdout.write(`Backend: ${backend.label}\n\n`);
+  process.stdout.write(`Backend: ${backend.label}\n`);
+  const markerPath = resolve(MARKER_FILE);
+  const markerExists = existsSync(markerPath);
+  const envOptIn = process.env['SEALED_ENV_USE_KEYCHAIN'] === '1';
+  process.stdout.write(`Opt-in:  ${MARKER_FILE} = ${markerExists ? 'present ✓' : 'missing'}`);
+  if (envOptIn) process.stdout.write('  (SEALED_ENV_USE_KEYCHAIN=1)');
+  process.stdout.write('\n\n');
   for (const name of KEYCHAIN_NAMES) {
     const v = backend.read(name);
     if (v === null) {
@@ -226,7 +285,9 @@ async function clearCommand(
   for (const name of KEYCHAIN_NAMES) {
     backend.remove(name);
   }
+  removeMarker();
   process.stdout.write(`✓ Cleared sealed-env entries from ${backend.label}\n`);
+  process.stdout.write(`✓ Removed ${MARKER_FILE} — auto-load will fall back to .env.local\n`);
 }
 
 function installHintFor(label: string): string {

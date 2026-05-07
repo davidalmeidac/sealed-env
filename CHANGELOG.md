@@ -14,6 +14,40 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.1.0-alpha.8] — 2026-05-07
+
+UX hot-fix on top of alpha.7. **No wire-format changes.**
+
+### Changed
+
+- **Keychain backend is now strictly opt-in.** alpha.7 always tried to
+  read from the OS keychain on every CLI invocation, even for users
+  who had never run `sealed-env keychain push` — that meant ~300 ms of
+  PowerShell/security/secret-tool spawn overhead per command. Not OK.
+
+  alpha.8 only checks the keychain when the project has explicitly
+  opted in:
+
+  - `sealed-env keychain push` now writes `.sealed-env.json` (a small
+    JSON marker file with `{ "storage": "keychain", ... }`) to the
+    project root. Safe to commit — contains no secrets.
+  - The auto-loader checks for that marker file BEFORE even loading
+    the keychain backend module. If the marker is absent, the
+    keychain code path is fully bypassed.
+  - `SEALED_ENV_USE_KEYCHAIN=1` is honored as an alternative opt-in
+    for one-off / CI scenarios.
+
+  `sealed-env keychain clear` and `pull` remove the marker.
+  `sealed-env keychain status` now reports whether the marker is
+  present so users can audit their setup.
+
+  Measured impact: `sealed-env doctor` overhead dropped from ~1.7 s
+  to ~250 ms when the project hasn't opted in. The keychain feature
+  remains exactly as functional as in alpha.7 for projects that have
+  opted in.
+
+---
+
 ## [0.1.0-alpha.7] — 2026-05-07
 
 Operator ergonomics + hardened key storage. **No wire-format changes** —

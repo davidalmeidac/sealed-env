@@ -126,16 +126,18 @@ export function resealLikeSource(
  *
  *   1. `process.env` — values already set by the parent shell or CI
  *      always win. We never override.
- *   2. **OS keychain** (Windows DPAPI / macOS Keychain / libsecret)
- *      — encrypted at rest, locked to the user login. If the operator
- *      has run `sealed-env keychain push` previously, the values live
- *      here and we read them on demand.
- *   3. `.env.local` in `cwd` — fallback for projects that haven't
- *      adopted the keychain yet, or for CI bootstrap.
+ *   2. **OS keychain** — only if the project opted in by running
+ *      `sealed-env keychain push` (which creates `.sealed-env.json` in
+ *      cwd as a marker), or if `SEALED_ENV_USE_KEYCHAIN=1` is set
+ *      explicitly. Without one of those signals we DON'T spawn the
+ *      platform CLI on every command — that would add ~300ms of
+ *      overhead for users who never enabled the keychain backend.
+ *   3. `.env.local` in `cwd` — the default for projects that haven't
+ *      adopted the keychain.
  *
- * Returns the count of keys actually loaded, plus the source string
- * (`"keychain"` / `".env.local"` / `""` if nothing was loaded), so the
- * caller can log something useful to stderr without printing values.
+ * Returns the count of keys actually loaded plus the source string
+ * (`"OS keychain"` / `".env.local"` / `""` if nothing was loaded), so
+ * the caller can log a stderr breadcrumb without printing values.
  *
  * Only `SEALED_ENV_*` keys are touched. Other variables in `.env.local`
  * (if any) are ignored — that prevents this helper from acting as a
@@ -144,36 +146,35 @@ export function resealLikeSource(
 export function autoloadSealedEnvLocal(
   cwd: string = process.cwd(),
 ): { loaded: number; source: string } {
-  // Step 1: keychain first (more secure). We try lazily — only import
-  // the backend when we actually need it, so non-enterprise / non-
-  // keychain users don't pay the spawn cost.
   let loaded = 0;
   let sourceUsed = '';
-  try {
-    // Lazy require to avoid loading the keychain module on every
-    // command invocation when no keychain is set up.
-    const requireFn = createRequire(import.meta.url);
-    const keychainMod = requireFn('./keychain.js') as {
-      detectBackend: () => {
-        isAvailable(): boolean;
-        read(name: string): string | null;
-      } | null;
-      KEYCHAIN_NAMES: readonly string[];
-    };
-    const backend = keychainMod.detectBackend();
-    if (backend && backend.isAvailable()) {
-      for (const name of keychainMod.KEYCHAIN_NAMES) {
-        if (process.env[name] !== undefined) continue; // host wins
-        const v = backend.read(name);
-        if (v !== null) {
-          process.env[name] = v;
-          loaded++;
-          sourceUsed = 'OS keychain';
+
+  // Step 1: keychain — but only if the project has opted in.
+  if (isKeychainEnabled(cwd)) {
+    try {
+      const requireFn = createRequire(import.meta.url);
+      const keychainMod = requireFn('./keychain.js') as {
+        detectBackend: () => {
+          isAvailable(): boolean;
+          read(name: string): string | null;
+        } | null;
+        KEYCHAIN_NAMES: readonly string[];
+      };
+      const backend = keychainMod.detectBackend();
+      if (backend && backend.isAvailable()) {
+        for (const name of keychainMod.KEYCHAIN_NAMES) {
+          if (process.env[name] !== undefined) continue; // host wins
+          const v = backend.read(name);
+          if (v !== null) {
+            process.env[name] = v;
+            loaded++;
+            sourceUsed = 'OS keychain';
+          }
         }
       }
+    } catch {
+      // Backend errored — silently fall through to file-based loading.
     }
-  } catch {
-    // Backend errored — silently fall through to file-based loading.
   }
 
   // Step 2: .env.local fills in anything still missing.
@@ -200,6 +201,30 @@ export function autoloadSealedEnvLocal(
   }
 
   return { loaded, source: sourceUsed };
+}
+
+/**
+ * Check whether this project has opted into keychain-backed auto-load.
+ * Two signals trigger it:
+ *
+ *   1. `.sealed-env.json` in cwd with `{ "storage": "keychain" }` —
+ *      written by `sealed-env keychain push`. Persistent and committable
+ *      so a team can standardize on keychain across machines.
+ *   2. `SEALED_ENV_USE_KEYCHAIN=1` env var — for one-off / CI override.
+ *
+ * Without either, we skip the keychain path entirely. This means users
+ * who never run `keychain push` pay ZERO overhead from this feature.
+ */
+export function isKeychainEnabled(cwd: string = process.cwd()): boolean {
+  if (process.env['SEALED_ENV_USE_KEYCHAIN'] === '1') return true;
+  const marker = resolve(cwd, '.sealed-env.json');
+  if (!existsSync(marker)) return false;
+  try {
+    const cfg = JSON.parse(readFileSync(marker, 'utf8')) as { storage?: string };
+    return cfg.storage === 'keychain';
+  } catch {
+    return false;
+  }
 }
 
 /**
