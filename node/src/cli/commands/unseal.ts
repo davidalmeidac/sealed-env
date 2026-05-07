@@ -40,7 +40,9 @@ export async function unsealCommand(argv: string[]): Promise<void> {
     'deploy-id': { type: 'string', default: '' },
     ttl: { type: 'string', default: '60' },
     salt: { type: 'string', default: '' },
+    'token-only': { type: 'boolean', default: false },
   });
+  const tokenOnly = values['token-only'] as boolean;
 
   const masterKey = readEnvKey('SEALED_ENV_KEY');
   const totpSecret = readEnvKeyBase32('SEALED_ENV_TOTP_SECRET');
@@ -106,6 +108,14 @@ export async function unsealCommand(argv: string[]): Promise<void> {
     deployId,
     ttlSeconds: ttl,
   });
+
+  if (tokenOnly) {
+    // Machine-friendly mode: just the token, no decoration. Useful for
+    // shell scripts that want `TOKEN=$(sealed-env unseal --token-only ...)`
+    // without parsing through the human-friendly output.
+    process.stdout.write(token + '\n');
+    return;
+  }
 
   process.stdout.write(
     [

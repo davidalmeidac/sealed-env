@@ -64,7 +64,13 @@ export function initCommand(argv: string[]): void {
   const banner = '# sealed-env keys — DO NOT COMMIT THIS FILE.';
   const lines: string[] = [banner, `SEALED_ENV_KEY=${masterKeyHex}`];
   if (signingKeyHex) lines.push(`SEALED_ENV_SIGNING_KEY=${signingKeyHex}`);
-  if (totpBase32) lines.push(`SEALED_ENV_TOTP_SECRET=${totpBase32}  # base32, paste into your authenticator`);
+  if (totpBase32) {
+    // Inline comments after the value confuse the dotenv parser used
+    // by auto-load (it would treat the comment as part of the value).
+    // Put the explanation on its own line above instead.
+    lines.push('# SEALED_ENV_TOTP_SECRET is base32 — paste into your authenticator app.');
+    lines.push(`SEALED_ENV_TOTP_SECRET=${totpBase32}`);
+  }
   const envLocalContent = lines.join('\n') + '\n';
 
   if (existsSync(envLocalPath)) {

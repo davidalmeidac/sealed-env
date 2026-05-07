@@ -6,6 +6,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createRequire } from 'node:module';
 
 import { seal, unseal } from '../../core/api.js';
 import { SealedEnvError } from '../../core/errors.js';
@@ -121,43 +122,84 @@ export function resealLikeSource(
 }
 
 /**
- * Auto-load `SEALED_ENV_*` variables from `.env.local` in the current
- * working directory into `process.env`, but ONLY for keys that are not
- * already set. This means:
+ * Auto-load `SEALED_ENV_*` variables. Priority (highest first):
  *
- *   - On a dev machine: `.env.local` is the source of truth. The user
- *     never has to run `set` / `export`. Keys are picked up
- *     automatically by every `sealed-env` command run from the project
- *     directory.
- *   - In CI / production: env vars set by the platform always win.
- *     `.env.local` would not exist there anyway — but if a stray copy
- *     ever did, the platform's env vars override it.
+ *   1. `process.env` — values already set by the parent shell or CI
+ *      always win. We never override.
+ *   2. **OS keychain** (Windows DPAPI / macOS Keychain / libsecret)
+ *      — encrypted at rest, locked to the user login. If the operator
+ *      has run `sealed-env keychain push` previously, the values live
+ *      here and we read them on demand.
+ *   3. `.env.local` in `cwd` — fallback for projects that haven't
+ *      adopted the keychain yet, or for CI bootstrap.
  *
- * Returns the count of keys actually loaded, so the caller can log
- * something useful to stderr without printing the values themselves.
+ * Returns the count of keys actually loaded, plus the source string
+ * (`"keychain"` / `".env.local"` / `""` if nothing was loaded), so the
+ * caller can log something useful to stderr without printing values.
  *
  * Only `SEALED_ENV_*` keys are touched. Other variables in `.env.local`
  * (if any) are ignored — that prevents this helper from acting as a
- * generic dotenv loader, which would surprise users.
+ * generic dotenv loader.
  */
-export function autoloadSealedEnvLocal(cwd: string = process.cwd()): number {
-  const path = resolve(cwd, '.env.local');
-  if (!existsSync(path)) return 0;
-  let text: string;
-  try {
-    text = readFileSync(path, 'utf8');
-  } catch {
-    return 0;
-  }
-  const { pairs } = parseDotenv(text);
+export function autoloadSealedEnvLocal(
+  cwd: string = process.cwd(),
+): { loaded: number; source: string } {
+  // Step 1: keychain first (more secure). We try lazily — only import
+  // the backend when we actually need it, so non-enterprise / non-
+  // keychain users don't pay the spawn cost.
   let loaded = 0;
-  for (const [key, value] of pairs) {
-    if (!key.startsWith('SEALED_ENV_')) continue;
-    if (process.env[key] !== undefined) continue; // host env wins
-    process.env[key] = value;
-    loaded++;
+  let sourceUsed = '';
+  try {
+    // Lazy require to avoid loading the keychain module on every
+    // command invocation when no keychain is set up.
+    const requireFn = createRequire(import.meta.url);
+    const keychainMod = requireFn('./keychain.js') as {
+      detectBackend: () => {
+        isAvailable(): boolean;
+        read(name: string): string | null;
+      } | null;
+      KEYCHAIN_NAMES: readonly string[];
+    };
+    const backend = keychainMod.detectBackend();
+    if (backend && backend.isAvailable()) {
+      for (const name of keychainMod.KEYCHAIN_NAMES) {
+        if (process.env[name] !== undefined) continue; // host wins
+        const v = backend.read(name);
+        if (v !== null) {
+          process.env[name] = v;
+          loaded++;
+          sourceUsed = 'OS keychain';
+        }
+      }
+    }
+  } catch {
+    // Backend errored — silently fall through to file-based loading.
   }
-  return loaded;
+
+  // Step 2: .env.local fills in anything still missing.
+  const path = resolve(cwd, '.env.local');
+  if (existsSync(path)) {
+    let text: string;
+    try {
+      text = readFileSync(path, 'utf8');
+    } catch {
+      return { loaded, source: sourceUsed };
+    }
+    const { pairs } = parseDotenv(text);
+    let fileLoaded = 0;
+    for (const [key, value] of pairs) {
+      if (!key.startsWith('SEALED_ENV_')) continue;
+      if (process.env[key] !== undefined) continue;
+      process.env[key] = value;
+      fileLoaded++;
+    }
+    if (fileLoaded > 0) {
+      loaded += fileLoaded;
+      sourceUsed = sourceUsed ? `${sourceUsed} + .env.local` : '.env.local';
+    }
+  }
+
+  return { loaded, source: sourceUsed };
 }
 
 /**

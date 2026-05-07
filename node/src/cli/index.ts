@@ -20,6 +20,8 @@ import { diffCommand } from './commands/diff.js';
 import { doctorCommand } from './commands/doctor.js';
 import { execCommand } from './commands/exec.js';
 import { rotateCommand } from './commands/rotate.js';
+import { deployCommand } from './commands/deploy.js';
+import { keychainCommand } from './commands/keychain.js';
 import { autoloadSealedEnvLocal } from './utils/io.js';
 import { SealedEnvError } from '../core/errors.js';
 
@@ -33,7 +35,9 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<void> | void> = {
   diff: diffCommand,
   unseal: unsealCommand,
   exec: execCommand,
+  deploy: deployCommand,
   rotate: rotateCommand,
+  keychain: keychainCommand,
   doctor: doctorCommand,
   help: helpCommand,
   version: versionCommand,
@@ -67,12 +71,13 @@ async function main(): Promise<void> {
   // fills in what's missing. Skipped for `init` (which CREATES that file
   // and shouldn't be influenced by an existing one) and for `version` /
   // `help` (which don't touch keys at all).
-  const skipAutoload = cmd === 'init' || cmd === 'version' || cmd === 'help';
+  const skipAutoload =
+    cmd === 'init' || cmd === 'version' || cmd === 'help' || cmd === 'keychain';
   if (!skipAutoload && process.env['SEALED_ENV_NO_AUTOLOAD'] !== '1') {
-    const loaded = autoloadSealedEnvLocal();
+    const { loaded, source } = autoloadSealedEnvLocal();
     if (loaded > 0) {
       process.stderr.write(
-        `(loaded ${loaded} SEALED_ENV_* var${loaded === 1 ? '' : 's'} from .env.local)\n`,
+        `(loaded ${loaded} SEALED_ENV_* var${loaded === 1 ? '' : 's'} from ${source})\n`,
       );
     }
   }
@@ -127,18 +132,43 @@ function helpCommand(): void {
       '      Use after a suspected token leak or on a regular cadence.',
       '',
       'Run a command with sealed env vars injected:',
-      '  exec [--file <.env.sealed>] [--override] -- <command> [args...]',
+      '  exec [--file <path>] [--override] [--totp <code>] [--deploy-id <sha>] -- <command>',
       '      Decrypt the file in memory and run <command> with each',
       '      KEY=value injected into its environment. The plaintext',
       '      never lands on disk. Host env wins by default; pass',
       '      --override to let the sealed file win. Forwards Ctrl+C',
-      '      and propagates the child exit code.',
+      '      and propagates the child exit code. For enterprise files,',
+      '      mints the unseal token in memory (TOTP prompt or --totp).',
       '',
       '      Example:  sealed-env exec --file .env.sealed -- node server.js',
       '',
-      'Production deploys (enterprise mode only):',
-      '  unseal --file <.env.sealed> [--totp <code>] [--deploy-id <sha>] [--ttl 60]',
+      'Production deploy (recommended over hand-rolled deploy.sh):',
+      '  deploy [--file <path>] [--health-url <url>] [--health-timeout <s>] -- <command>',
+      '      Wraps `exec` with deploy-time safety rails: auto-detects',
+      '      deploy_id from `git rev-parse HEAD`, refuses dirty trees,',
+      '      and optionally polls a health endpoint after the command.',
+      '',
+      '      Example:',
+      '        sealed-env deploy --health-url http://127.0.0.1:8090/actuator/health \\',
+      '          -- docker compose up -d --build status',
+      '',
+      'Production deploys (manual token mint):',
+      '  unseal --file <.env.sealed> [--totp <code>] [--deploy-id <sha>] [--ttl 60] [--token-only]',
       '      Generate a short-lived unseal token (60s default).',
+      '      --token-only prints just the token (no surrounding text)',
+      '      for shell scripts: TOKEN=$(sealed-env unseal --token-only ...)',
+      '',
+      'Hardened key storage (optional, more secure than .env.local):',
+      '  keychain push',
+      '      Move SEALED_ENV_* from .env.local to the OS keychain',
+      '      (Windows Credential Manager / macOS Keychain / libsecret).',
+      '      Auto-load picks them up automatically afterwards.',
+      '  keychain pull',
+      '      Write keychain secrets back to .env.local (migration).',
+      '  keychain status',
+      '      Show which entries are stored (no values printed).',
+      '  keychain clear',
+      '      Remove all sealed-env entries from the keychain.',
       '',
       'Diagnostics:',
       '  doctor [<file.env.sealed>]',

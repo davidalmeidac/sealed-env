@@ -14,6 +14,87 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.1.0-alpha.7] — 2026-05-07
+
+Operator ergonomics + hardened key storage. **No wire-format changes** —
+files sealed by previous `0.1.0-alpha.x` releases (≥ alpha.4) decrypt
+cleanly on `0.1.0-alpha.7`.
+
+### Added
+
+- **`sealed-env exec` now handles enterprise mode end-to-end.** When the
+  file is enterprise, exec mints the unseal token IN MEMORY (prompting
+  for the TOTP code if `--totp` not given), uses it to decrypt, and
+  injects the resulting `KEY=value` pairs into the child process. The
+  raw token never appears in stdout/stderr/disk. Master/signing/TOTP
+  credentials are also stripped from the child's environment, so the
+  application sees only `DATABASE_URL` etc., never `SEALED_ENV_KEY`.
+
+  ```sh
+  # Single-line replacement for a 130-line deploy.sh:
+  sealed-env exec --file .env.sealed --deploy-id $(git rev-parse HEAD) \
+    -- docker compose up -d --build status
+  ```
+
+- **`sealed-env deploy [-- <command>]`** — production deploy wrapper
+  around `exec` that auto-detects `deploy_id` from `git rev-parse HEAD`,
+  refuses to run with a dirty working tree (uncommitted changes would
+  silently NOT be in the build), and optionally polls a health URL after
+  the command finishes. Replaces the standard hand-rolled deploy.sh
+  pattern with a single command.
+
+  ```sh
+  sealed-env deploy \
+    --health-url http://127.0.0.1:8090/actuator/health \
+    -- docker compose up -d --build status
+  ```
+
+- **`sealed-env keychain push|pull|status|clear`** — store
+  `SEALED_ENV_*` secrets in the OS-native encrypted keychain instead of
+  `.env.local` plaintext. Cross-platform via shell-out (no native deps):
+    - Windows: DPAPI (`%LOCALAPPDATA%\sealed-env\*.bin`, encrypted with
+      the user login key, inaccessible to other users on the machine).
+    - macOS: `security` CLI (system Keychain).
+    - Linux: `secret-tool` (libsecret / GNOME Keyring / KWallet).
+
+  After `keychain push`, the auto-loader prefers the keychain over
+  `.env.local`. The `status` subcommand prints a SHA-256 fingerprint
+  per entry (no values), safe for logs and support threads.
+
+- **`sealed-env unseal --token-only`** — emit just the token, no
+  surrounding human-readable text. Designed for shell scripts:
+  `TOKEN=$(sealed-env unseal --token-only --file ... --totp ...)`.
+  No more parsing through `grep -oE 'usl_...'`.
+
+### Changed
+
+- **Auto-load priority** is now: `process.env` → OS keychain →
+  `.env.local`. CI/explicit env vars still win. The startup hint
+  on stderr now reads `(loaded N SEALED_ENV_* vars from OS keychain)`
+  or `(... from .env.local)` so users know where their keys came from.
+
+- **`init` no longer writes inline comments** in `.env.local`. The
+  TOTP-secret-is-base32 hint moved to its own comment line above. The
+  old inline form (`SECRET=value  # base32`) confused the auto-load
+  parser, treating the comment as part of the value.
+
+### Architecture note: host-side decrypt
+
+This release enables a meaningful security upgrade for production
+deploys. With `sealed-env exec` / `sealed-env deploy`, the operator's
+machine does the full unseal (master key + signing key + TOTP secret +
+mint token) and only injects the resulting plaintext env vars into the
+container. The container — and the deploy host, if you deploy from
+laptop via `DOCKER_HOST=ssh://...` — never sees the master key,
+signing key, TOTP secret, or unseal token.
+
+In contrast, the Spring Boot starter approach (which still works, no
+breaking change) requires those credentials on the deploy host. For
+single-instance deploys that's fine; for multi-container fleets the
+starter is still the right call. Both are documented.
+
+---
+
 ## [0.1.0-alpha.6] — 2026-05-07
 
 UX release. **No wire-format changes** — files sealed by previous
