@@ -14,6 +14,85 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.1.0-alpha.3] — 2026-05-06
+
+Operational ergonomics release — adds the day-to-day commands that
+were missing for sysadmins and operators. No wire-format changes;
+files sealed by previous `0.1.0-alpha.x` versions decrypt cleanly on
+`0.1.0-alpha.3` and vice versa.
+
+### Added
+
+- **`sealed-env get <file> <KEY>`** — print one variable's value to
+  stdout. Composable: `STRIPE_KEY=$(sealed-env get .env.sealed STRIPE_KEY)`.
+  Exits 1 if the key is not found, with the available key list in the
+  error message.
+- **`sealed-env set <file> <KEY> <VALUE>`** — update or add a single
+  variable and re-seal in place. Comments and key order in the
+  underlying `.env` are preserved. The previous sealed file is backed
+  up to `<file>.bak` before overwriting.
+- **`sealed-env edit <file>`** — opens `$EDITOR` (defaults to `vi` on
+  Linux/macOS, `notepad` on Windows) with the plaintext for in-place
+  editing. The temp file lives in `/dev/shm` (tmpfs, RAM-backed) on
+  Linux when available, falls back to the OS temp dir elsewhere. Mode
+  `0600`, zeroed and unlinked on exit including SIGINT/SIGTERM. Re-seals
+  with the same mode/keys as the source on save.
+- **`sealed-env diff <old.sealed> <new.sealed>`** — show which keys
+  were added, removed, or changed between two sealed files. Values
+  are hidden by default to avoid leaking secrets in CI logs and PR
+  comments. Pass `--show-values` to reveal them. Long values are
+  truncated at 60 characters. Exit code 0 if identical, 1 if different.
+- **`init --mode enterprise` now renders a scannable QR code**
+  directly in the terminal for the TOTP `otpauth://` URI. Point Google
+  Authenticator / Authy / 1Password / Bitwarden at the screen and it
+  pairs in under a second. The URI is still printed below the QR as a
+  fallback for terminals that don't render Unicode half-block
+  characters correctly.
+
+### Refactored
+
+- Internal: shared `decrypt → parse → reseal` helpers in
+  `src/cli/utils/io.ts`. All five operational commands (decrypt, get,
+  set, edit, diff) now go through one set of well-tested primitives,
+  removing roughly 200 lines of duplication and ensuring consistent
+  error handling across commands.
+
+### Fixed
+
+- **Smoke test `tampered HMAC is rejected`** had a ~1/64 chance of
+  silently passing without actually tampering the HMAC, when the
+  original first base64 character of the HMAC happened to be `'A'`
+  and the test replaced it with the same character. The test now
+  picks a guaranteed-different replacement.
+
+### Documentation
+
+- **New `docs/07-operational-guide.md`** — walks non-developers
+  (sysadmins, managers, founders) through the five common workflows
+  with no cryptography background required. Covers reading secrets,
+  rotating leaked keys, comparing PR changes, onboarding a new
+  developer, and how to integrate sealed-env into application code
+  via the Spring Boot starter or the Node loader.
+- **New `docs/08-cicd-recipes.md`** — copy-paste configurations for
+  GitHub Actions (basic + enterprise mode with token minting and
+  `::add-mask::`), GitLab CI (Protected + Masked variables, dotenv
+  artifacts), AWS (ECS/Fargate, Lambda extension, EC2 with IAM +
+  systemd), Google Cloud (Cloud Run, GKE with External Secrets
+  Operator), Vercel, Netlify, Fly.io, Render, Heroku, Docker (with
+  the rule that the master key must never be baked into the image),
+  Kubernetes (`Secret` + `envFrom` + ESO), and bare-metal SSH.
+  Includes a 5-point audit checklist.
+
+### Dependencies
+
+- **New runtime dependency: `qrcode-terminal@0.12.0`** — pure JS,
+  zero transitive dependencies, MIT licensed, ~80 KB. Used only by
+  the `init --mode enterprise` flow to render the TOTP QR code. Core
+  cryptography and the `decrypt` / `get` / `set` / `edit` / `diff`
+  paths remain dependency-free.
+
+---
+
 ## [0.1.0-alpha.2] — 2026-05-06
 
 Iteration on usability and onboarding. No wire-format changes; files

@@ -185,7 +185,7 @@ Add the starter to `pom.xml`:
 <dependency>
   <groupId>io.github.davidalmeidac</groupId>
   <artifactId>sealed-env-spring-boot-starter</artifactId>
-  <version>0.1.0-alpha.2</version>
+  <version>0.1.0-alpha.3</version>
 </dependency>
 ```
 
