@@ -57,7 +57,15 @@ export interface SealedFile {
   kdfParams: KdfParams;
   salt: Buffer;
   nonce: Buffer;
-  totpVerifier?: Buffer;
+  /**
+   * Enterprise mode: HMAC-SHA256(derivedKey, enterprise_epoch || "epoch-commit-v1"),
+   * where enterprise_epoch = HMAC-SHA256(totpSecret, salt || "epoch-v1").
+   *
+   * This commits the file to the operator's TOTP secret WITHOUT
+   * revealing it. See SPEC.md §9 and src/format/constants.ts for the
+   * full derivation.
+   */
+  epochCommit?: Buffer;
   challengeBind?: 'enabled' | 'disabled';
   aadDigest: Buffer;
   hmac?: Buffer;

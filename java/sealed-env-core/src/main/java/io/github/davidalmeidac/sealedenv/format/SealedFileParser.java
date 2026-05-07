@@ -119,10 +119,10 @@ public final class SealedFileParser {
         String created = required(metadata, "CREATED");
 
         // ── Conditional fields
-        Optional<byte[]> totpVerifier = Optional.empty();
+        Optional<byte[]> epochCommit = Optional.empty();
         Optional<ChallengeBind> challengeBind = Optional.empty();
         if (mode == Mode.ENTERPRISE) {
-            totpVerifier = Optional.of(decodeB64(required(metadata, "TOTP-VERIFIER"), "TOTP-VERIFIER"));
+            epochCommit = Optional.of(decodeB64(required(metadata, "EPOCH-COMMIT"), "EPOCH-COMMIT"));
             challengeBind = Optional.of(ChallengeBind.fromWire(required(metadata, "CHALLENGE-BIND")));
         }
 
@@ -135,7 +135,7 @@ public final class SealedFileParser {
 
         return new SealedFile(
                 1, mode, kdf, kdfParams, salt, nonce,
-                totpVerifier, challengeBind, aadDigest, hmac,
+                epochCommit, challengeBind, aadDigest, hmac,
                 created, rotated, ciphertext);
     }
 

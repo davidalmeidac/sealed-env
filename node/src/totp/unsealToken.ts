@@ -9,11 +9,24 @@
  * (NOT the master key directly), so a token cannot be forged from the master
  * key alone — you also need the file's salt. This couples token validity to
  * a specific file generation.
+ *
+ * Security note (post-alpha.3 hardening): the token payload carries an
+ * `enterprise_epoch`, which is HMAC(totpSecret, salt || "epoch-v1") —
+ * NOT the TOTP secret itself. The salt binding limits the blast radius
+ * of a leaked token to the specific file generation (re-sealing with a
+ * new salt invalidates leaked epochs). Earlier alpha versions stored
+ * the raw TOTP secret in `payload.totp_secret`, which leaked the secret
+ * to anyone who could read a token (CI logs, container env dumps, etc.).
+ * Files sealed with alpha ≤ 0.1.0-alpha.3 are NOT compatible with this
+ * version — re-seal them with `sealed-env encrypt`.
  */
 
 import { hmacSha256, constantTimeEqual } from '../core/crypto.js';
 import { SealedEnvError } from '../core/errors.js';
-import { MAX_UNSEAL_TOKEN_AGE_SECONDS } from '../format/constants.js';
+import {
+  MAX_UNSEAL_TOKEN_AGE_SECONDS,
+  EPOCH_DERIVE_TAG,
+} from '../format/constants.js';
 
 const TOKEN_PREFIX = 'usl_';
 
@@ -26,14 +39,26 @@ export interface UnsealTokenPayload {
   iss: 'sealed-env-cli';
   iat: number;
   exp: number;
-  totp_secret: string; // base64
+  /**
+   * Salt-bound derivative of the operator's TOTP secret:
+   *   enterprise_epoch = HMAC-SHA256(totpSecret, salt || "epoch-v1")
+   * Carried as base64. The TOTP secret itself NEVER appears in the token.
+   */
+  epoch: string;
   deploy_id: string | null;
   ops_id: string;
 }
 
 export interface BuildTokenInput {
   derivedKey: Buffer;
+  /**
+   * The operator's TOTP secret. Used here ONLY to derive the
+   * salt-bound `enterprise_epoch`; the secret itself never leaves
+   * this function and never appears in the produced token.
+   */
   totpSecret: Buffer;
+  /** The file's salt — required to compute `enterprise_epoch`. */
+  salt: Buffer;
   deployId: string | null;
   ttlSeconds?: number;
 }
@@ -46,6 +71,13 @@ export function buildUnsealToken(input: BuildTokenInput): string {
 
   const now = Math.floor(Date.now() / 1000);
 
+  // Derive the salt-bound enterprise epoch. This is what goes into
+  // the token — the raw TOTP secret never leaves this function.
+  const enterpriseEpoch = hmacSha256(
+    input.totpSecret,
+    Buffer.concat([input.salt, Buffer.from(EPOCH_DERIVE_TAG, 'utf8')]),
+  );
+
   const header: UnsealTokenHeader = {
     alg: 'HS256',
     typ: 'sealed-env-unseal/v1',
@@ -54,7 +86,7 @@ export function buildUnsealToken(input: BuildTokenInput): string {
     iss: 'sealed-env-cli',
     iat: now,
     exp: now + ttl,
-    totp_secret: input.totpSecret.toString('base64'),
+    epoch: enterpriseEpoch.toString('base64'),
     deploy_id: input.deployId,
     ops_id: randomOpsId(),
   };
@@ -79,7 +111,11 @@ export interface VerifyTokenInput {
 }
 
 export interface VerifyTokenResult {
-  totpSecret: Buffer;
+  /**
+   * The salt-bound enterprise epoch carried by the token. Caller must
+   * verify this against the file's `epochCommit` before trusting it.
+   */
+  enterpriseEpoch: Buffer;
   opsId: string;
 }
 
@@ -150,17 +186,19 @@ export function verifyUnsealToken(input: VerifyTokenInput): VerifyTokenResult {
   }
   input.markOpsIdSeen?.(payload.ops_id);
 
-  let totpSecret: Buffer;
+  let enterpriseEpoch: Buffer;
   try {
-    totpSecret = Buffer.from(payload.totp_secret, 'base64');
+    enterpriseEpoch = Buffer.from(payload.epoch, 'base64');
   } catch {
-    throw new SealedEnvError('TOKEN_INVALID', 'unseal token totp_secret unreadable');
+    throw new SealedEnvError('TOKEN_INVALID', 'unseal token epoch unreadable');
   }
-  if (totpSecret.length < 16) {
-    throw new SealedEnvError('TOKEN_INVALID', 'unseal token totp_secret too short');
+  // HMAC-SHA256 output is always exactly 32 bytes. Any other length
+  // means the token is malformed or from a different format version.
+  if (enterpriseEpoch.length !== 32) {
+    throw new SealedEnvError('TOKEN_INVALID', 'unseal token epoch wrong length');
   }
 
-  return { totpSecret, opsId: payload.ops_id };
+  return { enterpriseEpoch, opsId: payload.ops_id };
 }
 
 function base64UrlEncode(input: string | Buffer): string {

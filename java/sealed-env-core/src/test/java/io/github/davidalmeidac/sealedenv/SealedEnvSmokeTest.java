@@ -152,8 +152,12 @@ class SealedEnvSmokeTest {
             opts.challengeBind = true;
             opts.kdfParams = fastParams();
             String serialized = SealedEnv.seal(opts).serialized();
-            assertThat(serialized).contains("\nTOTP-VERIFIER=");
+            assertThat(serialized).contains("\nEPOCH-COMMIT=");
             assertThat(serialized).contains("\nCHALLENGE-BIND=enabled\n");
+            // Hardening regression: the serialized file must NEVER carry
+            // the literal TOTP secret. Pre-alpha.4 files exposed it via
+            // `totp_secret` in the JWS payload of unseal tokens.
+            assertThat(serialized).doesNotContain("TOTP-VERIFIER=");
 
             SealedFile file = SealedFileParser.parse(serialized);
 
@@ -161,7 +165,23 @@ class SealedEnvSmokeTest {
             byte[] derivedKey = io.github.davidalmeidac.sealedenv.crypto.CryptoPrimitives
                     .deriveMasterKey(opts.masterKey, file.salt(), file.kdfParams());
             String token = UnsealToken.build(new UnsealToken.BuildInput(
-                    derivedKey, totpSecret, "deploy-abc123", 60));
+                    derivedKey, totpSecret, file.salt(), "deploy-abc123", 60));
+
+            // Hardening regression: the token MUST NOT contain the TOTP
+            // secret. Decode the JWS payload and assert the `epoch` field
+            // is present and `totp_secret` is not.
+            String payloadB64 = token.substring("usl_".length()).split("\\.")[1];
+            String payloadJson = new String(
+                    java.util.Base64.getUrlDecoder().decode(payloadB64),
+                    StandardCharsets.UTF_8);
+            assertThat(payloadJson).contains("\"epoch\"");
+            assertThat(payloadJson).doesNotContain("totp_secret");
+            // And the literal secret bytes (in any common encoding) must
+            // not appear anywhere in the token.
+            String hexSecret = HexFormat.of().formatHex(totpSecret);
+            String b64Secret = java.util.Base64.getEncoder().encodeToString(totpSecret);
+            assertThat(token).doesNotContain(hexSecret);
+            assertThat(token).doesNotContain(b64Secret);
 
             SealedEnv.UnsealOptions u = new SealedEnv.UnsealOptions();
             u.file = file;
@@ -190,7 +210,7 @@ class SealedEnvSmokeTest {
             byte[] derivedKey = io.github.davidalmeidac.sealedenv.crypto.CryptoPrimitives
                     .deriveMasterKey(opts.masterKey, sr.file().salt(), sr.file().kdfParams());
             String token = UnsealToken.build(new UnsealToken.BuildInput(
-                    derivedKey, totpSecret, "deploy-A", 60));
+                    derivedKey, totpSecret, sr.file().salt(), "deploy-A", 60));
 
             SealedEnv.UnsealOptions u = new SealedEnv.UnsealOptions();
             u.file = sr.file();

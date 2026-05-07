@@ -123,12 +123,12 @@ export function parseSealedFile(text: string): SealedFile {
   const created = required(metadata, 'CREATED');
 
   // ── Optional/conditional fields
-  let totpVerifier: Buffer | undefined;
+  let epochCommit: Buffer | undefined;
   let challengeBind: 'enabled' | 'disabled' | undefined;
   if (mode === 'enterprise') {
-    totpVerifier = decodeBase64Strict(
-      required(metadata, 'TOTP-VERIFIER'),
-      'TOTP-VERIFIER',
+    epochCommit = decodeBase64Strict(
+      required(metadata, 'EPOCH-COMMIT'),
+      'EPOCH-COMMIT',
     );
     const cb = required(metadata, 'CHALLENGE-BIND');
     if (cb !== 'enabled' && cb !== 'disabled') {
@@ -151,7 +151,7 @@ export function parseSealedFile(text: string): SealedFile {
     kdfParams,
     salt,
     nonce,
-    ...(totpVerifier && { totpVerifier }),
+    ...(epochCommit && { epochCommit }),
     ...(challengeBind && { challengeBind }),
     aadDigest,
     ...(hmac && { hmac }),

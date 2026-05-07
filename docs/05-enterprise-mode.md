@@ -48,7 +48,7 @@ Enterprise mode adds two layers on top of `team`:
         │                                 │                          2. verify HMAC      ✓
         │                                 │                          3. verify token sig ✓
         │                                 │                          4. verify deploy_id ✓
-        │                                 │                          5. verify TOTP-VERIFIER
+        │                                 │                          5. verify EPOCH-COMMIT
         │                                 │                             commitment        ✓
         │                                 │                          6. AES-GCM decrypt   ✓
         │                                 │                                    │
@@ -72,17 +72,29 @@ Enterprise mode adds two layers on top of `team`:
         │           │                   header.payload)
         │           │
         │           └──▶ payload (JSON, base64url):
-        │                  iss          : sealed-env-cli
-        │                  iat          : <unix-seconds>
-        │                  exp          : <iat + 60>
-        │                  totp_secret  : <base64>
-        │                  deploy_id    : <commit-sha or null>
-        │                  ops_id       : <random uuid v4>
+        │                  iss        : sealed-env-cli
+        │                  iat        : <unix-seconds>
+        │                  exp        : <iat + 60>
+        │                  epoch      : <base64-of-32-byte enterprise epoch>
+        │                  deploy_id  : <commit-sha or null>
+        │                  ops_id     : <random uuid v4>
         │
         └──▶ header (JSON, base64url):
                alg : HS256
                typ : sealed-env-unseal/v1
 ```
+
+Where the **enterprise epoch** is a salt-bound HMAC derivative of the TOTP
+secret:
+
+```
+enterprise_epoch = HMAC-SHA256(totp_secret, salt || "epoch-v1")
+```
+
+The TOTP secret itself **never appears in the token**. A captured token
+gives the attacker only this salt-bound derivative — useful against the
+specific file generation that produced it (until re-sealing rotates the
+salt), but useless for minting tokens against future re-sealings.
 
 Key properties:
 - **Lifetime ≤ 600 seconds** (default 60). Short enough that a leaked token
@@ -90,9 +102,12 @@ Key properties:
 - **Signed with the file's `derived_key`** (master_key + salt-derived). A
   token cannot be forged from the master key alone — you also need the
   file's salt, which means you need the file.
-- **`totp_secret` is committed at seal time** via the `TOTP-VERIFIER` field
-  (an HMAC commitment). The token's TOTP secret must match what was sealed
-  in, so an attacker cannot mint a token from a different TOTP secret.
+- **The TOTP secret never leaves the operator's machine.** What goes into
+  the token is `enterprise_epoch`, a salt-bound HMAC derivative committed
+  in the file via the `EPOCH-COMMIT` field. A leaked token cannot be used
+  to mint tokens against re-sealed files (different salt → different
+  epoch). This is what makes "TOTP" act as a real second factor and not a
+  one-time secret leak.
 
 ## What this protects against
 

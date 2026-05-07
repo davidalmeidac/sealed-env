@@ -2,7 +2,7 @@
   "mode": "team",
   "masterKeyHex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "signingKeyHex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "totpSecretHex": "f0a1a7b073bab9b72892010ba51ffdde847f0d0e",
+  "totpSecretHex": "41e392ca892818c8ee6408fd4c36f7c0ed046d09",
   "plaintext": "API_KEY=cross-stack\nDB_URL=postgres://prod\n",
-  "serialized": "SEALED-ENV-V1 MODE=team\nKDF=scrypt\nKDF-PARAMS=N=32768,r=8,p=1\nSALT=KZBkPYJ/1OUU8NjTs3yKrA==\nNONCE=a7recM3oJ75DC6fy\nAAD-DIGEST=OBO7or3s8x1lwJwMhhejPE5/6dqOxk4MEjD7W3bquaY=\nHMAC=v8syCjk1+KXnYcG/LzLoSAdwkitRckr2fDXx30DsiVM=\nCREATED=2026-05-06T03:46:15.134Z\n\nV2+cpcqbvQXuybQqbynloaBOXaEjtOOcR8EXgYil5rvVxSsG/DiUISvA5C+mF/8qN+6Msq/JO2lbvo4="
+  "serialized": "SEALED-ENV-V1 MODE=team\nKDF=scrypt\nKDF-PARAMS=N=32768,r=8,p=1\nSALT=huM5+57SPMO2P9jXxjuTAA==\nNONCE=jqSUI2Grdx0MFs8Q\nAAD-DIGEST=tytwlpq9gBl7aCnbE6hMbdF/RsUGuI7IdfEA18x+MqQ=\nHMAC=Iwzo3aQK5yOFE9Kk0NKjZfXuG+/6T4W2YSESHFF9T/s=\nCREATED=2026-05-07T04:26:07.596Z\n\nzR74Rx95lFsY3csJEg4RMifWKIv/c2U5T4qF8CRnx/yPwz4YNUyYAWHTsjuSxl3V+Ei3MZIRdJxMQac="
 }

@@ -101,6 +101,7 @@ export async function unsealCommand(argv: string[]): Promise<void> {
   const token = buildUnsealToken({
     derivedKey,
     totpSecret,
+    salt,
     deployId,
     ttlSeconds: ttl,
   });

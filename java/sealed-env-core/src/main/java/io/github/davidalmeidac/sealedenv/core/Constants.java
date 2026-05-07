@@ -42,6 +42,24 @@ public final class Constants {
     public static final String HKDF_INFO_ENC = "sealed-env:v1:enc";
     public static final String HKDF_INFO_MAC = "sealed-env:v1:mac";
 
-    /** TOTP verifier domain-separation tag. */
-    public static final String TOTP_VERIFY_TAG = "verify-v1";
+    /**
+     * Enterprise epoch derivation tag — used at seal/mint time to derive
+     * the salt-bound enterprise epoch from the TOTP secret:
+     *
+     *   enterprise_epoch = HMAC-SHA256(totpSecret, salt || EPOCH_DERIVE_TAG)
+     */
+    public static final String EPOCH_DERIVE_TAG = "epoch-v1";
+
+    /**
+     * Enterprise epoch commitment tag — used by the file to commit to a
+     * specific epoch without revealing it:
+     *
+     *   epoch_commit = HMAC-SHA256(derivedKey, enterprise_epoch || EPOCH_COMMIT_TAG)
+     *
+     * The verifier recomputes this from the token's epoch field and
+     * compares against the file's EPOCH-COMMIT field. This commits to
+     * the operator-side TOTP secret WITHOUT requiring the verifier to
+     * ever see the secret itself.
+     */
+    public static final String EPOCH_COMMIT_TAG = "epoch-commit-v1";
 }

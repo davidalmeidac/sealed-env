@@ -42,10 +42,10 @@ export function serializeSealedFile(file: SealedFile): string {
   lines.push(`NONCE=${file.nonce.toString('base64')}`);
 
   if (file.mode === 'enterprise') {
-    if (!file.totpVerifier) {
-      throw new Error('Internal: enterprise file missing TOTP-VERIFIER');
+    if (!file.epochCommit) {
+      throw new Error('Internal: enterprise file missing EPOCH-COMMIT');
     }
-    lines.push(`TOTP-VERIFIER=${file.totpVerifier.toString('base64')}`);
+    lines.push(`EPOCH-COMMIT=${file.epochCommit.toString('base64')}`);
     lines.push(`CHALLENGE-BIND=${file.challengeBind ?? 'enabled'}`);
   }
 
@@ -87,8 +87,8 @@ export function buildAad(file: SealedFile): Buffer {
   lines.push(`SALT=${file.salt.toString('base64')}`);
   lines.push(`NONCE=${file.nonce.toString('base64')}`);
 
-  if (file.mode === 'enterprise' && file.totpVerifier) {
-    lines.push(`TOTP-VERIFIER=${file.totpVerifier.toString('base64')}`);
+  if (file.mode === 'enterprise' && file.epochCommit) {
+    lines.push(`EPOCH-COMMIT=${file.epochCommit.toString('base64')}`);
     lines.push(`CHALLENGE-BIND=${file.challengeBind ?? 'enabled'}`);
   }
 

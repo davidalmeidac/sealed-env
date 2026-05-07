@@ -59,5 +59,27 @@ export const MAX_UNSEAL_TOKEN_AGE_SECONDS = 600;
 export const HKDF_INFO_ENC = 'sealed-env:v1:enc';
 export const HKDF_INFO_MAC = 'sealed-env:v1:mac';
 
-/** TOTP verifier domain separation tag. */
-export const TOTP_VERIFY_TAG = 'verify-v1';
+/**
+ * Enterprise epoch derivation tag — used at seal/mint time to derive
+ * the salt-bound `enterprise_epoch` from the TOTP secret:
+ *
+ *   enterprise_epoch = HMAC-SHA256(totpSecret, salt || EPOCH_DERIVE_TAG)
+ *
+ * The salt binding ensures that a leaked epoch (from a leaked token)
+ * is only useful against THIS file generation. Re-sealing with a new
+ * salt invalidates leaked epochs.
+ */
+export const EPOCH_DERIVE_TAG = 'epoch-v1';
+
+/**
+ * Enterprise epoch commitment tag — used by the file to commit to a
+ * specific epoch without revealing it:
+ *
+ *   epoch_commit = HMAC-SHA256(derivedKey, enterprise_epoch || EPOCH_COMMIT_TAG)
+ *
+ * The verify side recomputes this from the token's `epoch` field and
+ * compares against the file's `EPOCH-COMMIT` field. This commits the
+ * file to the operator-side TOTP secret WITHOUT requiring the verifier
+ * to ever see the secret itself.
+ */
+export const EPOCH_COMMIT_TAG = 'epoch-commit-v1';

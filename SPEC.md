@@ -68,7 +68,7 @@ are simply skipped (the order remains stable).
 | 2 | `KDF-PARAMS` | all | For argon2id: `t=<int>,m=<int>,p=<int>`. For scrypt: `N=<int>,r=<int>,p=<int>` |
 | 3 | `SALT` | all | base64, 16 bytes raw |
 | 4 | `NONCE` | all | base64, 12 bytes raw |
-| 5 | `TOTP-VERIFIER` | enterprise only | base64, 32 bytes (HMAC-SHA256 commitment) |
+| 5 | `EPOCH-COMMIT` | enterprise only | base64, 32 bytes (HMAC-SHA256 commitment to the salt-bound enterprise epoch — see §6) |
 | 6 | `CHALLENGE-BIND` | enterprise only | `enabled` or `disabled` |
 | 7 | `AAD-DIGEST` | all | base64, 32 bytes (SHA-256 of associated data) |
 | 8 | `HMAC` | team and enterprise | base64, 32 bytes |
@@ -111,7 +111,11 @@ PKCS#1 v1.5 padding, custom RNG.
    `aad_digest = SHA-256(aad)`.
 6. `ciphertext_with_tag = AES-256-GCM-encrypt(enc_key, nonce, plaintext, aad)`.
 7. If `mode == enterprise`:
-   - `totp_verifier = HMAC-SHA256(derived_key, totp_secret || "verify-v1")`.
+   - `enterprise_epoch = HMAC-SHA256(totp_secret, salt || "epoch-v1")`.
+   - `epoch_commit = HMAC-SHA256(derived_key, enterprise_epoch || "epoch-commit-v1")`.
+   - The file commits to `epoch_commit`. The TOTP secret itself never appears
+     in any persisted artifact (file or token). The salt binding ensures a
+     leaked epoch is only useful against this specific file generation.
 8. If `mode in (team, enterprise)`:
    - `mac_key = HKDF(signing_key, salt=salt, info="sealed-env:v1:mac", L=32)`.
    - `hmac = HMAC-SHA256(mac_key, magic_line || metadata_without_HMAC || ciphertext_with_tag)`.
@@ -143,8 +147,10 @@ Always exclude the `HMAC` line itself when computing the HMAC over metadata.
    - Parse the unseal token (JWT-like, see §9).
    - Verify token signature with `derived_key`.
    - Verify `token.exp > now`.
-   - Verify `HMAC-SHA256(derived_key, token.totp_secret || "verify-v1") ==
-     stored TOTP-VERIFIER`. Constant-time compare.
+   - Verify `HMAC-SHA256(derived_key, token.epoch || "epoch-commit-v1") ==
+     stored EPOCH-COMMIT`. Constant-time compare. The token carries
+     `enterprise_epoch` (a salt-bound HMAC derivative of the operator's
+     TOTP secret), NOT the TOTP secret itself.
    - If `CHALLENGE-BIND=enabled`: verify `token.deploy_id` matches the
      current deploy challenge (provided by CI as `SEALED_ENV_DEPLOY_ID`).
 6. **AAD reconstruction:** rebuild `aad` from magic + metadata (excluding HMAC),
@@ -202,11 +208,25 @@ usl_<base64url(header)>.<base64url(payload)>.<base64url(signature)>
   "iss": "sealed-env-cli",
   "iat": 1717024500,
   "exp": 1717024560,
-  "totp_secret": "<base64-of-totp-seed>",
+  "epoch": "<base64-of-32-byte-enterprise-epoch>",
   "deploy_id": "<sha-256-of-commit-or-null>",
   "ops_id": "<random-uuid-v4>"
 }
 ```
+
+Where:
+
+```
+enterprise_epoch = HMAC-SHA256(totp_secret, salt || "epoch-v1")
+```
+
+The `enterprise_epoch` is a **salt-bound HMAC derivative** of the operator's
+TOTP secret — never the secret itself. This is the central security property
+of the unseal protocol: a leaked token (e.g., from CI logs, container env
+dumps, or stack traces) does NOT give the attacker the TOTP secret. Without
+the secret, the attacker cannot recompute `enterprise_epoch` for files with
+a different salt (i.e., future re-sealings), so the blast radius of a
+leaked token is bounded to the specific file generation that produced it.
 
 **Signature:**
 `HMAC-SHA256(derived_key, base64url(header) + "." + base64url(payload))`

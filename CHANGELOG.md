@@ -14,6 +14,88 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.1.0-alpha.4] — 2026-05-07
+
+> **🚨 SECURITY: this release fixes a critical issue in `enterprise` mode.
+> Prior versions (alpha.1, alpha.2, alpha.3) embedded the operator's TOTP
+> secret in the JWS payload of every unseal token. JWS payload is base64-
+> encoded JSON, NOT encrypted — anyone observing a token (CI logs, container
+> env dumps, stack traces) could extract the secret and use it (with the
+> master key) to mint unseal tokens for FUTURE deploys indefinitely.**
+>
+> **All `0.1.0-alpha.{1,2,3}` releases are deprecated on npm and Maven
+> Central. If you adopted enterprise mode in any of those versions:**
+>
+> 1. **Rotate your TOTP secret.** Re-run `sealed-env init --mode enterprise`.
+> 2. **Re-seal all `.env.sealed` files.** Old files use the deprecated wire
+>    field (`TOTP-VERIFIER`) and won't decrypt with `0.1.0-alpha.4`.
+> 3. **Update CI / production env to use the new package version.**
+>
+> The wire format intentionally breaks compatibility — files sealed before
+> alpha.4 are NOT readable by alpha.4. Since the package was not yet adopted
+> in the wild (only the author's own dogfooding), this seemed safer than a
+> backward-compatible code path that would silently keep reading the
+> insecure field on old files.
+
+### Security
+
+- **CRITICAL: TOTP secret no longer appears in unseal tokens.** The token
+  payload now carries an `enterprise_epoch`:
+  ```
+  enterprise_epoch = HMAC-SHA256(totp_secret, salt || "epoch-v1")
+  ```
+  This is a salt-bound HMAC derivative — knowing it does NOT let an
+  attacker recompute it for files with a different salt. The blast radius
+  of a leaked token is reduced from "permanent compromise of all current
+  and future enterprise files" to "compromise of one specific file
+  generation, until re-seal".
+
+- **Wire format field renamed:** `TOTP-VERIFIER` → `EPOCH-COMMIT`. The new
+  field commits to the salt-bound epoch instead of the raw TOTP secret:
+  ```
+  epoch_commit = HMAC-SHA256(derived_key, enterprise_epoch || "epoch-commit-v1")
+  ```
+
+- **Token payload field renamed:** `totp_secret` → `epoch`. Old field is
+  rejected. Any code or test that referenced the old field will fail at
+  parse time, surfacing the upgrade as a hard error rather than silent
+  insecurity.
+
+- **Regression tests added** that fail if either:
+  - The serialized file contains `TOTP-VERIFIER`, or
+  - A minted token contains the literal TOTP secret in any common encoding
+    (hex or base64), or the field name `totp_secret`.
+
+### Migration
+
+This release is **incompatible with files sealed by `0.1.0-alpha.{1,2,3}`**.
+To migrate:
+
+```sh
+# 1. Decrypt with the old version
+npx sealed-env@0.1.0-alpha.3 decrypt .env.sealed > /tmp/.env.plaintext
+
+# 2. Upgrade
+npm i -D sealed-env@0.1.0-alpha.4
+
+# 3. Re-init keys (TOTP secret rotation is mandatory)
+sealed-env init --mode enterprise
+
+# 4. Re-seal with the new keys
+sealed-env encrypt /tmp/.env.plaintext --mode enterprise
+
+# 5. Securely wipe the plaintext
+shred -u /tmp/.env.plaintext   # or: rm -P on macOS
+```
+
+### Credit
+
+This issue was identified by an external reviewer comparing the actual JWS
+payload of a minted token against the operator's `.env.local` TOTP secret
+and confirming bit-for-bit equality. Thank you for the careful eyes.
+
+---
+
 ## [0.1.0-alpha.3] — 2026-05-06
 
 Operational ergonomics release — adds the day-to-day commands that

@@ -2,7 +2,7 @@
   "mode": "basic",
   "masterKeyHex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "signingKeyHex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "totpSecretHex": "9f902781a236d579568fcaf1968306d86ff34168",
+  "totpSecretHex": "524794ae29672a80295bb0be8cbd8815f393859f",
   "plaintext": "API_KEY=cross-stack\nDB_URL=postgres://prod\n",
-  "serialized": "SEALED-ENV-V1 MODE=basic\nKDF=scrypt\nKDF-PARAMS=N=32768,r=8,p=1\nSALT=SgBgNa+CCAIqo9jp6n8ljw==\nNONCE=WMLlGHaQkgfAFfJd\nAAD-DIGEST=5k1RB8V3l3//Az35mGdPXA/1obRx3iwjHyDzLz0ibHQ=\nCREATED=2026-05-06T03:46:14.953Z\n\n3K+2tdxeicMNY7lXIB16bXXlqVGn8LLanSgkumIs+fN90pRHbXWls+a2ofZE26rT7CQypUKD+Usek24="
+  "serialized": "SEALED-ENV-V1 MODE=basic\nKDF=scrypt\nKDF-PARAMS=N=32768,r=8,p=1\nSALT=cjEZ9LJdMm7EB+XJmuDIlg==\nNONCE=auNcyoBkKZkm6np7\nAAD-DIGEST=SwCUaIOaLblHUq4AZQZJkJ+uQWNPjGKiNLqPn24x8xo=\nCREATED=2026-05-07T04:26:07.314Z\n\n5INrQBHklbC3giGmO2L4S8SbZB8F5UKd21whO7Jp4uUz+RQxxtzlqtyZIzkqI4CmBvFt1tNTQsX0ce0="
 }

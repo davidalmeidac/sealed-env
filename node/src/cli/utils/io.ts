@@ -16,11 +16,42 @@ import { parseSealedFile } from '../../format/parser.js';
 export function readKeyFromEnv(varName: string): Buffer {
   const v = process.env[varName];
   if (!v) {
-    throw new SealedEnvError('MISSING_KEY', `environment variable ${varName} is required`);
+    throw new SealedEnvError(
+      'MISSING_KEY',
+      `environment variable ${varName} is required.\n${shellHintFor(varName)}`,
+    );
   }
   if (/^[0-9a-fA-F]+$/.test(v) && v.length % 2 === 0) return Buffer.from(v, 'hex');
   if (/^[A-Za-z0-9+/]+={0,2}$/.test(v)) return Buffer.from(v, 'base64');
   throw new SealedEnvError('CONFIG_ERROR', `${varName} must be hex or base64`);
+}
+
+/**
+ * Build a shell-appropriate "how to set this env var" hint. A frequent
+ * footgun on Windows is using cmd.exe's `set X=Y` syntax inside a
+ * PowerShell session — PowerShell parses that as `Set-Variable` and
+ * creates a session-scoped PowerShell variable instead of an env var,
+ * which child processes (like sealed-env) never see. We show both
+ * syntaxes on Windows to cover the user no matter which shell they
+ * are running in.
+ */
+function shellHintFor(varName: string): string {
+  const example = '<paste-the-hex-or-base64-key-here>';
+  if (process.platform === 'win32') {
+    return [
+      'How to set it:',
+      `  PowerShell:  $env:${varName} = "${example}"`,
+      `  cmd.exe:     set ${varName}=${example}`,
+      `  Git Bash:    export ${varName}="${example}"`,
+      '',
+      'Note: in PowerShell, `set X=Y` is NOT an env var — it creates a',
+      'PowerShell variable that child processes cannot see. Use $env: instead.',
+    ].join('\n');
+  }
+  return [
+    'How to set it:',
+    `  export ${varName}="${example}"`,
+  ].join('\n');
 }
 
 /**

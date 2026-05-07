@@ -54,9 +54,9 @@ public final class SealedFileSerializer {
         lines.add("NONCE=" + B64.encodeToString(file.nonce()));
 
         if (file.mode() == Mode.ENTERPRISE) {
-            byte[] verifier = file.totpVerifier().orElseThrow(() ->
-                    new IllegalStateException("enterprise file missing TOTP-VERIFIER"));
-            lines.add("TOTP-VERIFIER=" + B64.encodeToString(verifier));
+            byte[] commit = file.epochCommit().orElseThrow(() ->
+                    new IllegalStateException("enterprise file missing EPOCH-COMMIT"));
+            lines.add("EPOCH-COMMIT=" + B64.encodeToString(commit));
             SealedFile.ChallengeBind cb = file.challengeBind()
                     .orElse(SealedFile.ChallengeBind.ENABLED);
             lines.add("CHALLENGE-BIND=" + cb.wire());

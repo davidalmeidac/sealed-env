@@ -94,7 +94,7 @@ class CrossStackInteropTest {
         assertThat(file.mode()).isEqualTo(Mode.ENTERPRISE);
         assertThat(file.kdf()).isEqualTo(KdfAlgorithm.SCRYPT);
         assertThat(file.hmac()).isPresent();
-        assertThat(file.totpVerifier()).isPresent();
+        assertThat(file.epochCommit()).isPresent();
 
         byte[] masterKey = HexFormat.of().parseHex(v.get("masterKeyHex").asText());
         byte[] signingKey = HexFormat.of().parseHex(v.get("signingKeyHex").asText());
@@ -102,11 +102,13 @@ class CrossStackInteropTest {
 
         // Build the unseal token from the file's salt + the master key + the
         // TOTP secret committed in the vector. This is exactly what an
-        // operator's CLI would do at deploy time.
+        // operator's CLI would do at deploy time. The salt MUST be passed
+        // because the token's `epoch` is HMAC(totpSecret, salt || tag).
         byte[] derivedKey = CryptoPrimitives.deriveMasterKey(
                 masterKey, file.salt(), file.kdfParams());
         String token = UnsealToken.build(new UnsealToken.BuildInput(
-                derivedKey, totpSecret, /* deployId */ null, /* ttlSeconds */ 60));
+                derivedKey, totpSecret, file.salt(),
+                /* deployId */ null, /* ttlSeconds */ 60));
 
         SealedEnv.UnsealOptions u = new SealedEnv.UnsealOptions();
         u.file = file;

@@ -155,7 +155,8 @@ private String stripeKey;
                                                      plaintext
 
                                                      ▲
-                                                     │ + totp_secret
+                                                     │ + unseal token (carries
+                                                     │   salt-bound TOTP epoch)
                                                      │ + deploy_id
 ```
 

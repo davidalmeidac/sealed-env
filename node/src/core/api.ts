@@ -31,7 +31,8 @@ import {
   KEY_LEN,
   NONCE_LEN,
   SALT_LEN,
-  TOTP_VERIFY_TAG,
+  EPOCH_DERIVE_TAG,
+  EPOCH_COMMIT_TAG,
 } from '../format/constants.js';
 import type {
   KdfParams,
@@ -91,12 +92,32 @@ export function seal(opts: SealOptions): { file: SealedFile; serialized: string 
     try {
       // Build a draft SealedFile (without ciphertext / aadDigest / hmac yet) so
       // we can compute AAD over canonical metadata
-      const totpVerifier =
+      // Enterprise mode: build the salt-bound epoch commitment.
+      //
+      //   enterprise_epoch = HMAC(totpSecret, salt || "epoch-v1")
+      //   epoch_commit     = HMAC(derivedKey, enterprise_epoch || "epoch-commit-v1")
+      //
+      // The token will carry `enterprise_epoch` (NOT totpSecret). The
+      // salt binding is what makes a leaked token only useful against
+      // this specific file generation — re-sealing with a fresh salt
+      // produces a different epoch and invalidates leaked tokens.
+      const epochCommit =
         opts.mode === 'enterprise'
-          ? hmacSha256(
-              derivedKey,
-              Buffer.concat([opts.totpSecret!, Buffer.from(TOTP_VERIFY_TAG, 'utf8')]),
-            )
+          ? (() => {
+              const enterpriseEpoch = hmacSha256(
+                opts.totpSecret!,
+                Buffer.concat([salt, Buffer.from(EPOCH_DERIVE_TAG, 'utf8')]),
+              );
+              const commit = hmacSha256(
+                derivedKey,
+                Buffer.concat([
+                  enterpriseEpoch,
+                  Buffer.from(EPOCH_COMMIT_TAG, 'utf8'),
+                ]),
+              );
+              wipe(enterpriseEpoch);
+              return commit;
+            })()
           : undefined;
 
       const challengeBind: 'enabled' | 'disabled' | undefined =
@@ -113,7 +134,7 @@ export function seal(opts: SealOptions): { file: SealedFile; serialized: string 
         kdfParams,
         salt,
         nonce,
-        ...(totpVerifier && { totpVerifier }),
+        ...(epochCommit && { epochCommit }),
         ...(challengeBind && { challengeBind }),
         aadDigest: Buffer.alloc(32), // placeholder, recomputed below
         created,
@@ -208,7 +229,13 @@ export function unseal(opts: UnsealOptions): Buffer {
       }
     }
 
-    // Verify unseal token for enterprise mode
+    // Verify unseal token for enterprise mode.
+    //
+    // The token carries `enterprise_epoch` — a salt-bound derivative of
+    // the operator's TOTP secret, NOT the secret itself. We re-derive
+    // the commitment from the carried epoch and compare to the file's
+    // EPOCH-COMMIT field. A leaked token therefore only carries a
+    // value useful against THIS file generation.
     if (file.mode === 'enterprise') {
       const result = verifyUnsealToken({
         token: opts.unsealToken!,
@@ -217,19 +244,17 @@ export function unseal(opts: UnsealOptions): Buffer {
         challengeBindEnabled: file.challengeBind === 'enabled',
       });
 
-      // The token carries the TOTP secret. Verify it matches the file's
-      // verifier (the file commits to a specific TOTP secret at seal time).
-      const expectedVerifier = hmacSha256(
+      const expectedCommit = hmacSha256(
         derivedKey,
-        Buffer.concat([result.totpSecret, Buffer.from(TOTP_VERIFY_TAG, 'utf8')]),
+        Buffer.concat([result.enterpriseEpoch, Buffer.from(EPOCH_COMMIT_TAG, 'utf8')]),
       );
       if (
-        !file.totpVerifier ||
-        !constantTimeEqual(expectedVerifier, file.totpVerifier)
+        !file.epochCommit ||
+        !constantTimeEqual(expectedCommit, file.epochCommit)
       ) {
         throw SealedEnvError.decryptFailed();
       }
-      wipe(result.totpSecret);
+      wipe(result.enterpriseEpoch);
     }
 
     // AAD digest verification (defense in depth: catches metadata tampering

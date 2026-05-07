@@ -49,6 +49,7 @@ public final class UnsealToken {
     public record BuildInput(
             byte[] derivedKey,
             byte[] totpSecret,
+            byte[] salt,
             String deployId,
             int ttlSeconds) {
     }
@@ -68,7 +69,12 @@ public final class UnsealToken {
         }
     }
 
-    public record VerifyResult(byte[] totpSecret, String opsId) {
+    /**
+     * The {@code enterpriseEpoch} is the salt-bound HMAC derivative
+     * carried by the token — NOT the TOTP secret itself. Caller must
+     * verify it against the file's {@code epochCommit} before trusting it.
+     */
+    public record VerifyResult(byte[] enterpriseEpoch, String opsId) {
     }
 
     public static String build(BuildInput in) {
@@ -83,11 +89,19 @@ public final class UnsealToken {
         header.put("alg", EXPECTED_ALG);
         header.put("typ", EXPECTED_TYP);
 
+        // Derive the salt-bound enterprise epoch. The raw TOTP secret
+        // never appears in the token. See SealedEnv.buildEnterpriseEpoch.
+        byte[] tag = Constants.EPOCH_DERIVE_TAG.getBytes(StandardCharsets.UTF_8);
+        byte[] saltAndTag = new byte[in.salt.length + tag.length];
+        System.arraycopy(in.salt, 0, saltAndTag, 0, in.salt.length);
+        System.arraycopy(tag, 0, saltAndTag, in.salt.length, tag.length);
+        byte[] enterpriseEpoch = CryptoPrimitives.hmacSha256(in.totpSecret, saltAndTag);
+
         ObjectNode payload = JSON.createObjectNode();
         payload.put("iss", EXPECTED_ISS);
         payload.put("iat", now);
         payload.put("exp", now + ttl);
-        payload.put("totp_secret", STD_ENCODER.encodeToString(in.totpSecret));
+        payload.put("epoch", STD_ENCODER.encodeToString(enterpriseEpoch));
         if (in.deployId == null) {
             payload.putNull("deploy_id");
         } else {
@@ -179,17 +193,18 @@ public final class UnsealToken {
             throw new SealedEnvException(Code.TOKEN_INVALID, "unseal token already used (replay)");
         }
 
-        byte[] totpSecret;
+        byte[] enterpriseEpoch;
         try {
-            totpSecret = STD_DECODER.decode(asText(payload, "totp_secret"));
+            enterpriseEpoch = STD_DECODER.decode(asText(payload, "epoch"));
         } catch (Exception e) {
-            throw new SealedEnvException(Code.TOKEN_INVALID, "unseal token totp_secret unreadable");
+            throw new SealedEnvException(Code.TOKEN_INVALID, "unseal token epoch unreadable");
         }
-        if (totpSecret.length < 16) {
-            throw new SealedEnvException(Code.TOKEN_INVALID, "unseal token totp_secret too short");
+        // HMAC-SHA256 output is exactly 32 bytes. Anything else is malformed.
+        if (enterpriseEpoch.length != 32) {
+            throw new SealedEnvException(Code.TOKEN_INVALID, "unseal token epoch wrong length");
         }
 
-        return new VerifyResult(totpSecret, opsId);
+        return new VerifyResult(enterpriseEpoch, opsId);
     }
 
     private static String asText(JsonNode node, String field) {

@@ -102,12 +102,13 @@ describe('enterprise mode', () => {
     });
     assert.equal(file.mode, 'enterprise');
     assert.equal(file.challengeBind, 'enabled');
-    assert.ok(file.totpVerifier);
+    assert.ok(file.epochCommit);
 
     const derivedKey = deriveMasterKey(masterKey, file.salt, file.kdfParams);
     const token = buildUnsealToken({
       derivedKey,
       totpSecret,
+      salt: file.salt,
       deployId: 'sha-abc',
       ttlSeconds: 60,
     });
@@ -139,6 +140,7 @@ describe('enterprise mode', () => {
     const token = buildUnsealToken({
       derivedKey,
       totpSecret,
+      salt: file.salt,
       deployId: 'sha-abc',
       ttlSeconds: 60,
     });
@@ -172,6 +174,7 @@ describe('enterprise mode', () => {
     const token = buildUnsealToken({
       derivedKey,
       totpSecret,
+      salt: file.salt,
       deployId: 'd',
       ttlSeconds: 5,
     });

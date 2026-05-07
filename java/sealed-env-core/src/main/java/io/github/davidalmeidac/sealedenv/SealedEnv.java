@@ -88,10 +88,12 @@ public final class SealedEnv {
         try {
             encKey = CryptoPrimitives.hkdf(derivedKey, salt, Constants.HKDF_INFO_ENC, Constants.KEY_LEN);
 
-            Optional<byte[]> totpVerifier = Optional.empty();
+            // Enterprise: derive the salt-bound epoch and commit to it.
+            // The token will carry the epoch (NOT the TOTP secret).
+            Optional<byte[]> epochCommit = Optional.empty();
             Optional<ChallengeBind> challengeBind = Optional.empty();
             if (opts.mode == Mode.ENTERPRISE) {
-                totpVerifier = Optional.of(buildVerifier(derivedKey, opts.totpSecret));
+                epochCommit = Optional.of(buildEpochCommit(derivedKey, opts.totpSecret, salt));
                 boolean cbEnabled = opts.challengeBind == null || opts.challengeBind;
                 challengeBind = Optional.of(cbEnabled
                         ? ChallengeBind.ENABLED : ChallengeBind.DISABLED);
@@ -101,7 +103,7 @@ public final class SealedEnv {
             // canonically build the AAD over metadata.
             SealedFile draft = new SealedFile(
                     1, opts.mode, params.algorithm(), params, salt, nonce,
-                    totpVerifier, challengeBind,
+                    epochCommit, challengeBind,
                     new byte[32], Optional.empty(),
                     created, Optional.empty(), new byte[0]);
 
@@ -123,7 +125,7 @@ public final class SealedEnv {
 
             SealedFile file = new SealedFile(
                     1, opts.mode, params.algorithm(), params, salt, nonce,
-                    totpVerifier, challengeBind, aadDigest, hmac,
+                    epochCommit, challengeBind, aadDigest, hmac,
                     created, Optional.empty(), ciphertext);
             return new SealResult(file, SealedFileSerializer.serialize(file));
         } finally {
@@ -168,7 +170,10 @@ public final class SealedEnv {
                 }
             }
 
-            // Enterprise: verify unseal token + TOTP-VERIFIER commitment
+            // Enterprise: verify unseal token carries an epoch matching
+            // the file's EPOCH-COMMIT. The TOTP secret never appears
+            // in the token — the carried `enterpriseEpoch` is a salt-
+            // bound HMAC derivative.
             if (file.mode() == Mode.ENTERPRISE) {
                 UnsealToken.VerifyResult result = UnsealToken.verify(
                         new UnsealToken.VerifyInput(
@@ -177,13 +182,13 @@ public final class SealedEnv {
                                 opts.deployId,
                                 file.challengeBind().orElse(ChallengeBind.ENABLED)
                                         == ChallengeBind.ENABLED));
-                byte[] expectedVerifier = buildVerifier(derivedKey, result.totpSecret());
-                if (file.totpVerifier().isEmpty()
+                byte[] expectedCommit = buildEpochCommitFromEpoch(derivedKey, result.enterpriseEpoch());
+                if (file.epochCommit().isEmpty()
                         || !CryptoPrimitives.constantTimeEqual(
-                        expectedVerifier, file.totpVerifier().get())) {
+                        expectedCommit, file.epochCommit().get())) {
                     throw SealedEnvException.decryptFailed();
                 }
-                CryptoPrimitives.wipe(result.totpSecret());
+                CryptoPrimitives.wipe(result.enterpriseEpoch());
             }
 
             // AAD digest defense in depth (GCM tag would also catch this)
@@ -281,9 +286,36 @@ public final class SealedEnv {
 
     // ── helpers ────────────────────────────────────────────────────────────
 
-    private static byte[] buildVerifier(byte[] derivedKey, byte[] totpSecret) {
-        byte[] tag = Constants.TOTP_VERIFY_TAG.getBytes(StandardCharsets.UTF_8);
-        return CryptoPrimitives.hmacSha256(derivedKey, concat(totpSecret, tag));
+    /**
+     * Compute the salt-bound enterprise epoch (used at seal/mint time):
+     * {@code enterprise_epoch = HMAC(totpSecret, salt || "epoch-v1")}.
+     * Caller is responsible for wiping the returned buffer.
+     */
+    static byte[] buildEnterpriseEpoch(byte[] totpSecret, byte[] salt) {
+        byte[] tag = Constants.EPOCH_DERIVE_TAG.getBytes(StandardCharsets.UTF_8);
+        return CryptoPrimitives.hmacSha256(totpSecret, concat(salt, tag));
+    }
+
+    /**
+     * Compute the file-side epoch commitment:
+     * {@code epoch_commit = HMAC(derivedKey, enterprise_epoch || "epoch-commit-v1")}.
+     */
+    private static byte[] buildEpochCommitFromEpoch(byte[] derivedKey, byte[] enterpriseEpoch) {
+        byte[] tag = Constants.EPOCH_COMMIT_TAG.getBytes(StandardCharsets.UTF_8);
+        return CryptoPrimitives.hmacSha256(derivedKey, concat(enterpriseEpoch, tag));
+    }
+
+    /**
+     * Compose: derive epoch from totpSecret + salt, then commit it under derivedKey.
+     * Used at seal time. Wipes the intermediate epoch.
+     */
+    private static byte[] buildEpochCommit(byte[] derivedKey, byte[] totpSecret, byte[] salt) {
+        byte[] epoch = buildEnterpriseEpoch(totpSecret, salt);
+        try {
+            return buildEpochCommitFromEpoch(derivedKey, epoch);
+        } finally {
+            CryptoPrimitives.wipe(epoch);
+        }
     }
 
     private static byte[] concat(byte[] a, byte[] b) {

@@ -44,7 +44,7 @@ verification fails.
 | `KDF-PARAMS` | all | Format depends on KDF |
 | `SALT` | all | 16 bytes, fed to KDF |
 | `NONCE` | all | 12 bytes, fed to AES-GCM |
-| `TOTP-VERIFIER` | enterprise | HMAC commitment to the TOTP secret |
+| `EPOCH-COMMIT` | enterprise | HMAC commitment to the salt-bound enterprise epoch (does NOT reveal the TOTP secret — see SPEC §6) |
 | `CHALLENGE-BIND` | enterprise | `enabled` or `disabled` |
 | `AAD-DIGEST` | all | SHA-256 over the bound metadata |
 | `HMAC` | team, enterprise | HMAC-SHA256 over magic + metadata + ciphertext |
@@ -71,7 +71,7 @@ newline.
                         │   join with \n          ┌─▶ AES-GCM
    SALT, NONCE         ─┼──▶ ──────────▶ AAD ────┤    setAAD(...)
                         │                         │
-   TOTP-VERIFIER,      ─┤                         ├─▶ SHA-256
+   EPOCH-COMMIT,       ─┤                         ├─▶ SHA-256
    CHALLENGE-BIND      ─┤                         │   ─▶ AAD-DIGEST
    (enterprise only)    │                         │      (defense in
                         │                         │       depth)

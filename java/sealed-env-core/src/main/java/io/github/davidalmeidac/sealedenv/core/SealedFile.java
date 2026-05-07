@@ -22,7 +22,7 @@ public record SealedFile(
         KdfParams kdfParams,
         byte[] salt,
         byte[] nonce,
-        Optional<byte[]> totpVerifier,
+        Optional<byte[]> epochCommit,
         Optional<ChallengeBind> challengeBind,
         byte[] aadDigest,
         Optional<byte[]> hmac,
