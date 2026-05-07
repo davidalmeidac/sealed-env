@@ -52,13 +52,23 @@
     <maven.compiler.release>17</maven.compiler.release>
 
     <!-- Versions -->
-    <bouncycastle.version>1.78.1</bouncycastle.version>
+    <!--
+      bouncycastle 1.84 patches CVE-2026-5598 (Frodo timing channel) and
+      CVE-2026-0636 (LDAP injection). Neither affects sealed-env's actual
+      code paths (we use BC only for Argon2id), but bumping keeps clean
+      Dependabot status for downstream consumers.
+    -->
+    <bouncycastle.version>1.84</bouncycastle.version>
     <jackson.version>2.17.2</jackson.version>
     <spring-boot.version>3.3.4</spring-boot.version>
 
     <!-- Test versions -->
     <junit.version>5.10.3</junit.version>
-    <assertj.version>3.26.3</assertj.version>
+    <!--
+      assertj 3.27.7 patches CVE-2026-24400 (XXE in isXmlEqualTo, which
+      we never call). Test-scope only.
+    -->
+    <assertj.version>3.27.7</assertj.version>
 
     <!-- Plugins -->
     <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
