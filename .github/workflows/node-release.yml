@@ -38,16 +38,28 @@ jobs:
           # release.tag_name format: node-v0.1.0-alpha.1 → 0.1.0-alpha.1
           TAG="${{ github.event.release.tag_name }}"
           VERSION="${TAG#node-v}"
-          echo "Setting version to $VERSION"
-          npm version --no-git-tag-version "$VERSION"
+          CURRENT="$(node -p "require('./package.json').version")"
+          echo "Tag version: $VERSION"
+          echo "package.json version: $CURRENT"
+          if [ "$CURRENT" = "$VERSION" ]; then
+            echo "Version already set in package.json — skipping bump."
+          else
+            npm version --no-git-tag-version "$VERSION"
+          fi
 
       - name: Set version from manual input
         if: github.event_name == 'workflow_dispatch'
         run: |
           TAG="${{ inputs.tag }}"
           VERSION="${TAG#node-v}"
-          echo "Setting version to $VERSION"
-          npm version --no-git-tag-version "$VERSION"
+          CURRENT="$(node -p "require('./package.json').version")"
+          echo "Input version: $VERSION"
+          echo "package.json version: $CURRENT"
+          if [ "$CURRENT" = "$VERSION" ]; then
+            echo "Version already set in package.json — skipping bump."
+          else
+            npm version --no-git-tag-version "$VERSION"
+          fi
 
       - name: Install
         run: npm ci || npm install
