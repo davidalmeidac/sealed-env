@@ -4,7 +4,7 @@
  * that the four crypto-handling code paths stay identical.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { seal, unseal } from '../../core/api.js';
@@ -118,6 +118,46 @@ export function resealLikeSource(
   }
   const { serialized } = seal(opts);
   return serialized;
+}
+
+/**
+ * Auto-load `SEALED_ENV_*` variables from `.env.local` in the current
+ * working directory into `process.env`, but ONLY for keys that are not
+ * already set. This means:
+ *
+ *   - On a dev machine: `.env.local` is the source of truth. The user
+ *     never has to run `set` / `export`. Keys are picked up
+ *     automatically by every `sealed-env` command run from the project
+ *     directory.
+ *   - In CI / production: env vars set by the platform always win.
+ *     `.env.local` would not exist there anyway — but if a stray copy
+ *     ever did, the platform's env vars override it.
+ *
+ * Returns the count of keys actually loaded, so the caller can log
+ * something useful to stderr without printing the values themselves.
+ *
+ * Only `SEALED_ENV_*` keys are touched. Other variables in `.env.local`
+ * (if any) are ignored — that prevents this helper from acting as a
+ * generic dotenv loader, which would surprise users.
+ */
+export function autoloadSealedEnvLocal(cwd: string = process.cwd()): number {
+  const path = resolve(cwd, '.env.local');
+  if (!existsSync(path)) return 0;
+  let text: string;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch {
+    return 0;
+  }
+  const { pairs } = parseDotenv(text);
+  let loaded = 0;
+  for (const [key, value] of pairs) {
+    if (!key.startsWith('SEALED_ENV_')) continue;
+    if (process.env[key] !== undefined) continue; // host env wins
+    process.env[key] = value;
+    loaded++;
+  }
+  return loaded;
 }
 
 /**

@@ -112,14 +112,24 @@ They run:
 ```sh
 git clone <repo>
 cd <repo>
-export SEALED_ENV_KEY=...           # from secure channel
-sealed-env decrypt .env.sealed > .env  # one-time, into gitignored .env
-npm run dev
+# Save the key to .env.local — sealed-env auto-loads it from there.
+echo "SEALED_ENV_KEY=..." > .env.local
+sealed-env exec --file .env.sealed -- npm run dev
 ```
 
-…or, if your team uses sealed-env's Spring Boot starter / Node
-loader, they don't need to decrypt at all — the app reads the sealed
-file directly.
+After `.env.local` exists, **every** `sealed-env` command in that
+directory works without any `export` / `set` / `$env:` step. The CLI
+auto-loads `SEALED_ENV_*` keys from `.env.local` at startup.
+
+If your team uses sealed-env's Spring Boot starter / Node loader, the
+app itself can read the sealed file directly — you don't even need
+the wrapper.
+
+> 💡 The auto-loader only reads keys named `SEALED_ENV_*`. It is NOT a
+> generic dotenv loader. CI / explicit env vars always override
+> `.env.local` so production secrets never get accidentally pulled
+> from a stray local file. To opt out entirely, set
+> `SEALED_ENV_NO_AUTOLOAD=1`.
 
 ### You need to rotate a leaked secret
 
@@ -185,7 +195,7 @@ Add the starter to `pom.xml`:
 <dependency>
   <groupId>io.github.davidalmeidac</groupId>
   <artifactId>sealed-env-spring-boot-starter</artifactId>
-  <version>0.1.0-alpha.5</version>
+  <version>0.1.0-alpha.6</version>
 </dependency>
 ```
 

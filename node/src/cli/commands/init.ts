@@ -106,6 +106,12 @@ export function initCommand(argv: string[]): void {
       '  2. Run: sealed-env encrypt .env',
       '  3. Commit .env.sealed (NOT .env or .env.local)',
       '',
+      'You do NOT need to export these variables in your shell — every',
+      'sealed-env command auto-loads SEALED_ENV_* from .env.local in the',
+      'current directory. Just stay in this folder and run the commands.',
+      '',
+      '(To opt out of auto-loading, set SEALED_ENV_NO_AUTOLOAD=1.)',
+      '',
       ...(mode === 'enterprise'
         ? [
             'For production deploys (enterprise mode):',

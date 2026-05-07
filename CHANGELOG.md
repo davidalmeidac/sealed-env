@@ -14,6 +14,51 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.1.0-alpha.6] — 2026-05-07
+
+UX release. **No wire-format changes** — files sealed by previous
+`0.1.0-alpha.x` releases (≥ alpha.4) decrypt cleanly on `0.1.0-alpha.6`
+and vice versa.
+
+### Added
+
+- **Auto-loading of `SEALED_ENV_*` from `.env.local`.** Every CLI
+  command (except `init`, `version`, and `help`) now reads `.env.local`
+  in the current directory at startup and injects any `SEALED_ENV_*`
+  keys it finds into `process.env` — but only for keys that aren't
+  already set. This means:
+
+  - **Dev machines:** the user never has to run `set` / `export` /
+    `$env:`. After `sealed-env init`, every subsequent command in that
+    project directory just works.
+  - **CI / production:** explicit env vars always win. A stray
+    `.env.local` (which shouldn't exist there anyway) cannot
+    accidentally override platform secrets.
+  - **Other dotenv vars:** ignored. The auto-loader is intentionally
+    NOT a generic dotenv loader — only `SEALED_ENV_*` keys are touched,
+    so it never collides with `dotenv` or framework-level env loading.
+
+  Set `SEALED_ENV_NO_AUTOLOAD=1` to disable. The CLI prints a one-line
+  hint to stderr (`(loaded N SEALED_ENV_* vars from .env.local)`) so
+  users know auto-loading happened.
+
+### Changed
+
+- **`init` output** now tells the user explicitly that they don't need
+  to export anything — `.env.local` is auto-loaded — and points to the
+  opt-out flag.
+
+- **Operational guide** (`docs/07-operational-guide.md`) updated with
+  the simplified onboarding flow for new developers: clone → write
+  `.env.local` → run `sealed-env exec`. No more `export` step.
+
+### Migration
+
+None. This is a pure UX addition — `.env.local` was already being
+created by `init` since `0.1.0-alpha.1`. We just read from it now.
+
+---
+
 ## [0.1.0-alpha.5] — 2026-05-07
 
 Polish + ops ergonomics on top of the alpha.4 security fix. **No wire-format

@@ -20,6 +20,7 @@ import { diffCommand } from './commands/diff.js';
 import { doctorCommand } from './commands/doctor.js';
 import { execCommand } from './commands/exec.js';
 import { rotateCommand } from './commands/rotate.js';
+import { autoloadSealedEnvLocal } from './utils/io.js';
 import { SealedEnvError } from '../core/errors.js';
 
 const COMMANDS: Record<string, (argv: string[]) => Promise<void> | void> = {
@@ -59,6 +60,21 @@ async function main(): Promise<void> {
     helpCommand();
     process.exitCode = 1;
     return;
+  }
+
+  // Auto-load `SEALED_ENV_*` variables from `.env.local` in the current
+  // directory if it exists. CI / explicit env vars always win; this only
+  // fills in what's missing. Skipped for `init` (which CREATES that file
+  // and shouldn't be influenced by an existing one) and for `version` /
+  // `help` (which don't touch keys at all).
+  const skipAutoload = cmd === 'init' || cmd === 'version' || cmd === 'help';
+  if (!skipAutoload && process.env['SEALED_ENV_NO_AUTOLOAD'] !== '1') {
+    const loaded = autoloadSealedEnvLocal();
+    if (loaded > 0) {
+      process.stderr.write(
+        `(loaded ${loaded} SEALED_ENV_* var${loaded === 1 ? '' : 's'} from .env.local)\n`,
+      );
+    }
   }
 
   try {
