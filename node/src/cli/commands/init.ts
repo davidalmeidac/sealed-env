@@ -17,6 +17,8 @@
 import { writeFileSync, existsSync, appendFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import qrcode from 'qrcode-terminal';
+
 import { randomBytes } from '../../core/crypto.js';
 import { SealedEnvError } from '../../core/errors.js';
 import { buildOtpauthUri } from '../../totp/totp.js';
@@ -90,10 +92,13 @@ export function initCommand(argv: string[]): void {
       '',
       ...(otpauthUri
         ? [
-            'Scan this URI with your authenticator app:',
-            `  ${otpauthUri}`,
+            'Scan this QR with your authenticator app (Google Authenticator,',
+            'Authy, 1Password, Bitwarden, etc.):',
             '',
-            'Or paste the base32 secret manually.',
+            renderQr(otpauthUri),
+            'If the QR does not render correctly in your terminal, paste this',
+            'URI or the base32 secret above into your authenticator manually:',
+            `  ${otpauthUri}`,
             '',
           ]
         : []),
@@ -136,6 +141,22 @@ function ensureGitignore(dir: string, entries: string[]): void {
   if (additions.length === 0) return;
   const block = '\n# Added by sealed-env\n' + additions.join('\n') + '\n';
   appendFileSync(path, block);
+}
+
+/**
+ * Render an otpauth:// URI as a Unicode-block QR code suitable for
+ * pasting into a terminal. Uses error-correction level "M" (the
+ * default) which keeps the QR small enough for typical TOTP URIs while
+ * still being scannable. The `small: true` option uses half-block
+ * characters so each QR module is a single character cell instead of
+ * two, which helps it fit in standard 80-column terminals.
+ */
+function renderQr(uri: string): string {
+  let out = '';
+  qrcode.generate(uri, { small: true }, (rendered: string) => {
+    out = rendered;
+  });
+  return out;
 }
 
 function toBase32(buf: Buffer): string {
