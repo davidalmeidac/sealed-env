@@ -5,6 +5,10 @@
  * @see /SPEC.md
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
 import { initCommand } from './commands/init.js';
 import { encryptCommand } from './commands/encrypt.js';
 import { decryptCommand } from './commands/decrypt.js';
@@ -25,11 +29,25 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<void> | void> = {
   diff: diffCommand,
   unseal: unsealCommand,
   help: helpCommand,
+  version: versionCommand,
 };
 
 async function main(): Promise<void> {
-  const [, , cmd = 'help', ...rest] = process.argv;
-  const handler = COMMANDS[cmd];
+  // Top-level --version / -v / --help / -h handling, before the
+  // sub-command dispatcher. This lets `sealed-env --version` work the
+  // way users expect from any modern CLI.
+  const argv = process.argv.slice(2);
+  if (argv.length > 0 && (argv[0] === '--version' || argv[0] === '-v' || argv[0] === '-V')) {
+    versionCommand();
+    return;
+  }
+  if (argv.length === 0 || argv[0] === '--help' || argv[0] === '-h') {
+    helpCommand();
+    return;
+  }
+
+  const [cmd, ...rest] = argv;
+  const handler = COMMANDS[cmd!];
   if (!handler) {
     process.stderr.write(`sealed-env: unknown command "${cmd}"\n\n`);
     helpCommand();
@@ -86,6 +104,10 @@ function helpCommand(): void {
       '  unseal --file <.env.sealed> [--totp <code>] [--deploy-id <sha>] [--ttl 60]',
       '      Generate a short-lived unseal token (60s default).',
       '',
+      'Other:',
+      '  --version, -v       Print sealed-env version.',
+      '  --help, -h          Print this help.',
+      '',
       'Required environment variables:',
       '  SEALED_ENV_KEY          (all modes — master key, hex or base64)',
       '  SEALED_ENV_SIGNING_KEY  (team, enterprise)',
@@ -97,6 +119,25 @@ function helpCommand(): void {
       '',
     ].join('\n'),
   );
+}
+
+/**
+ * Print the package version. Reads from package.json so we don't need
+ * a build step to keep it in sync. The package.json sits at the
+ * package root, two levels above this file (dist/cli/index.js).
+ */
+function versionCommand(): void {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    // dist/cli/index.js → dist/.. → package.json
+    const pkgPath = resolve(here, '..', '..', 'package.json');
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version: string };
+    process.stdout.write(`sealed-env ${pkg.version}\n`);
+  } catch {
+    // Defensive fallback so --version never crashes. Shouldn't happen
+    // unless the package was assembled in an unusual way.
+    process.stdout.write('sealed-env (version unknown)\n');
+  }
 }
 
 main();
