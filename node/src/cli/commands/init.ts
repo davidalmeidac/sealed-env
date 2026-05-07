@@ -16,8 +16,7 @@
 
 import { writeFileSync, existsSync, appendFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-
-import qrcode from 'qrcode-terminal';
+import { createRequire } from 'node:module';
 
 import { randomBytes } from '../../core/crypto.js';
 import { SealedEnvError } from '../../core/errors.js';
@@ -152,13 +151,28 @@ function ensureGitignore(dir: string, entries: string[]): void {
  * still being scannable. The `small: true` option uses half-block
  * characters so each QR module is a single character cell instead of
  * two, which helps it fit in standard 80-column terminals.
+ *
+ * The `qrcode-terminal` import is lazy: it lives off the hot path
+ * (only `init --mode enterprise` ever needs it). This keeps the core
+ * cryptographic flows — seal, unseal, decrypt, get, set, edit, diff —
+ * free of any third-party require/import. If the library ever becomes
+ * unavailable for any reason, the rest of the CLI continues to work;
+ * we just print the URI textually and tell the user to paste it.
  */
 function renderQr(uri: string): string {
-  let out = '';
-  qrcode.generate(uri, { small: true }, (rendered: string) => {
-    out = rendered;
-  });
-  return out;
+  try {
+    const requireFn = createRequire(import.meta.url);
+    const qrcode = requireFn('qrcode-terminal') as {
+      generate: (s: string, opts: { small: boolean }, cb: (out: string) => void) => void;
+    };
+    let out = '';
+    qrcode.generate(uri, { small: true }, (rendered: string) => {
+      out = rendered;
+    });
+    return out;
+  } catch {
+    return '(could not render QR — paste the URI below into your authenticator)';
+  }
 }
 
 function toBase32(buf: Buffer): string {

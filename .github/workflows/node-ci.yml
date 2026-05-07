@@ -54,3 +54,10 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # Run on a single matrix cell — npm audit reads the public registry,
+      # the result is identical across OSes/Node versions, and we don't
+      # need to spam it 6×.
+      - name: Audit dependencies (high+ only)
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
+        run: npm audit --audit-level=high --omit=dev

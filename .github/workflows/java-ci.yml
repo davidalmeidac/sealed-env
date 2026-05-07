@@ -71,3 +71,12 @@ jobs:
           name: surefire-${{ matrix.os }}-jdk${{ matrix.java }}
           path: java/**/target/surefire-reports/
           if-no-files-found: ignore
+
+      # Java dependency security is covered by Dependabot, which already
+      # alerted on bcprov-jdk18on (CVE-2026-5598, CVE-2026-0636) and
+      # assertj-core (CVE-2026-24400) and is the canonical signal here.
+      # Running OWASP dependency-check in CI would mean a 5-15 min step
+      # downloading the full NVD feed each run — not worth the cost for
+      # the marginal coverage over Dependabot. If we ever need
+      # within-PR vulnerability gating, revisit and add the
+      # `dependency-check-maven` plugin behind an opt-in profile.

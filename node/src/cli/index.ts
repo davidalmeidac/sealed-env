@@ -17,6 +17,7 @@ import { getCommand } from './commands/get.js';
 import { setCommand } from './commands/set.js';
 import { editCommand } from './commands/edit.js';
 import { diffCommand } from './commands/diff.js';
+import { doctorCommand } from './commands/doctor.js';
 import { SealedEnvError } from '../core/errors.js';
 
 const COMMANDS: Record<string, (argv: string[]) => Promise<void> | void> = {
@@ -28,6 +29,7 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<void> | void> = {
   edit: editCommand,
   diff: diffCommand,
   unseal: unsealCommand,
+  doctor: doctorCommand,
   help: helpCommand,
   version: versionCommand,
 };
@@ -103,6 +105,11 @@ function helpCommand(): void {
       'Production deploys (enterprise mode only):',
       '  unseal --file <.env.sealed> [--totp <code>] [--deploy-id <sha>] [--ttl 60]',
       '      Generate a short-lived unseal token (60s default).',
+      '',
+      'Diagnostics:',
+      '  doctor [<file.env.sealed>]',
+      '      Validate your env vars, file, and roundtrip without printing',
+      '      any secret values. Safe to paste into a CI log or support thread.',
       '',
       'Other:',
       '  --version, -v       Print sealed-env version.',

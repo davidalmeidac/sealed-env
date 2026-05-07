@@ -115,7 +115,7 @@ it's only valid for that one deploy and expires within seconds.
 |  | sealed-env | dotenvx | dotenv-vault | jasypt |
 |---|---|---|---|---|
 | Node + Java with shared format | **✓** | ✗ | ✗ | ✗ |
-| Minimal deps | **1** (qr only) | many | many | n/a |
+| Zero deps in core crypto | **✓** (1 lazy CLI dep for QR only) | ✗ | ✗ | n/a |
 | TOTP unseal for production | **✓** | ✗ | ✗ | ✗ |
 | Memory wipe after ingestion | **✓** | ✗ | ✗ | ✗ |
 | Public threat model | **✓** | partial | partial | ✗ |

@@ -62,7 +62,53 @@
 - A single misconfig (Actuator exposed) defeats encryption-at-rest
 - Plaintext secrets must not survive boot
 
-### 5. TOTP real-time relay (AitM phishing toolkits — Evilginx, Modlishka)
+### 6. Token-payload exposure (lesson from sealed-env's own CVE-2026-XXXXX)
+
+**What happened (to us, May 2026):**
+
+In `sealed-env` versions `0.1.0-alpha.{1,2,3}`, the operator's TOTP secret was
+embedded **in plaintext (base64) inside the JWS payload of every minted unseal
+token**. JWS is signed, not encrypted — anyone who could observe a token (CI
+logs, container env dumps, `kubectl describe pod`, Sentry/Rollbar stack traces)
+could decode the payload and extract the secret. Combined with the master key,
+the leaked secret allowed minting **future** unseal tokens indefinitely.
+
+The reviewer found it in 5 minutes by base32-encoding the bytes from
+`payload.totp_secret` and comparing to the operator's `.env.local` value.
+
+Affected versions are deprecated and a CVE was requested. See
+[GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv).
+
+**What it teaches us (and what we now do):**
+
+- **JWT/JWS payloads are public.** The signature attests to integrity, not
+  confidentiality. Any field placed in `.payload.*` is readable by anyone
+  who sees the token. This is JOSE 101, but it's surprisingly easy to
+  mis-design under pressure — especially when the verifier "needs" the
+  secret to recompute a commitment.
+- **Carry derived material, never raw secrets.** The fix replaced
+  `payload.totp_secret` with `payload.epoch`, where:
+  ```
+  enterprise_epoch = HMAC-SHA256(totp_secret, salt || "epoch-v1")
+  ```
+  The salt binding shrinks the blast radius of a leaked token from
+  "permanent compromise of all current AND future enterprise files" down
+  to "compromise of one specific file generation, until re-seal". The
+  raw TOTP secret never leaves the operator's machine.
+- **Test for what you don't want to see, not just for what you do.** Our
+  new regression suite asserts both Node and Java sides:
+  - The serialized `.env.sealed` file does NOT contain `TOTP-VERIFIER` (old
+    field name, semantically dangerous).
+  - The minted token does NOT contain the literal secret in any common
+    encoding (hex, base64, base32) or under the field name `totp_secret`.
+
+  Negative assertions catch design regressions that positive assertions
+  miss entirely.
+- **External review pays for itself instantly.** The fix took 4 hours
+  end-to-end. Not finding it would have meant shipping a broken second
+  factor to every user. Make the bug-report path obvious and respond fast.
+
+### 7. TOTP real-time relay (AitM phishing toolkits — Evilginx, Modlishka)
 
 **What happened:**
 - Attacker proxies the login page
@@ -92,6 +138,7 @@
 | T10 | Replay of unseal token across deploys | stolen short-lived token | Token has `ops_id` claim — a single use binds it to a specific operation. Server-side (or client-side) replay cache rejects re-use |
 | T11 | Brute-force unseal | repeated attempts | Rate limiter on `unseal` CLI: max 5 wrong codes per 5 minutes per master key. Then forced rotation |
 | T12 | Side-channel timing on key compare | crypto bug | Use `crypto.timingSafeEqual` for all comparisons. Constant-time HMAC verification |
+| T13 | Secret material in token payload | JWT/JWS misuse — carrying secrets where the spec only protects integrity | Token carries `enterprise_epoch = HMAC(totp_secret, salt \|\| tag)`, never the raw secret. File commits to `epoch_commit = HMAC(derived_key, epoch \|\| tag)`. Regression tests assert both Node + Java tokens never contain the literal secret in any encoding. Lesson learned the hard way; see threat #6 above |
 
 ---
 
