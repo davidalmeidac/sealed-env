@@ -14,6 +14,12 @@ on:
       - '.github/workflows/node-ci.yml'
   workflow_dispatch:
 
+# Lock down the GITHUB_TOKEN to the minimum needed (CodeQL: "Workflow does
+# not contain permissions"). CI is read-only — only checking out code and
+# running tests. No write access required.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: node

@@ -9,6 +9,12 @@ on:
         description: 'Release tag (e.g. node-v0.1.0-alpha.1)'
         required: true
 
+# Default to the minimum at the workflow level (CodeQL: "Workflow does not
+# contain permissions"). The publish job overrides with id-token: write
+# for npm provenance.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: node

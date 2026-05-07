@@ -131,13 +131,15 @@ function ensureGitignore(dir: string, entries: string[]): void {
       /* ignore */
     }
   }
-  const additions: string[] = [];
-  for (const entry of entries) {
-    const re = new RegExp(`^${entry.replace(/\./g, '\\.')}$`, 'm');
-    if (!re.test(existing)) {
-      additions.push(entry);
-    }
-  }
+  // Treat the .gitignore as a list of trimmed lines and check membership
+  // by string comparison. The previous implementation built a regex from
+  // the entry name and only escaped `.`, missing every other metachar
+  // (CodeQL: "Incomplete string escaping"). String-set lookup is also
+  // simpler and zero-surface.
+  const existingLines = new Set(
+    existing.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+  );
+  const additions = entries.filter((entry) => !existingLines.has(entry));
   if (additions.length === 0) return;
   const block = '\n# Added by sealed-env\n' + additions.join('\n') + '\n';
   appendFileSync(path, block);
