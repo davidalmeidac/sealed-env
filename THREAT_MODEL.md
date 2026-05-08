@@ -77,7 +77,9 @@ The reviewer found it in 5 minutes by base32-encoding the bytes from
 `payload.totp_secret` and comparing to the operator's `.env.local` value.
 
 Affected versions are deprecated. Tracked as
-**[CVE-2026-45091](https://nvd.nist.gov/vuln/detail/CVE-2026-45091)** /
+**[CVE-2026-45091](https://www.cve.org/CVERecord?id=CVE-2026-45091)**
+(currently RESERVED, awaiting publication of the full record by the
+assigning CNA) and
 [GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv).
 
 **What it teaches us (and what we now do):**

@@ -15,7 +15,7 @@ with optional TOTP-based unsealing for production deploys.
 [![Java CI](https://img.shields.io/github/actions/workflow/status/davidalmeidac/sealed-env/java-ci.yml?branch=main&style=flat-square&color=1a1612&labelColor=c4471f&label=java%20ci)](https://github.com/davidalmeidac/sealed-env/actions/workflows/java-ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-1a1612?style=flat-square&labelColor=c4471f)](LICENSE)
 [![Threat model](https://img.shields.io/badge/threat--model-public-1a1612?style=flat-square&labelColor=c4471f)](THREAT_MODEL.md)
-[![CVE response](https://img.shields.io/badge/CVE--2026--45091-resolved%20%E2%9C%93-1a1612?style=flat-square&labelColor=c4471f)](https://nvd.nist.gov/vuln/detail/CVE-2026-45091)
+[![CVE-2026-45091](https://img.shields.io/badge/CVE--2026--45091-fixed%20in%20alpha.4-1a1612?style=flat-square&labelColor=c4471f)](https://www.cve.org/CVERecord?id=CVE-2026-45091)
 
 [Docs](docs/) · [Threat Model](THREAT_MODEL.md) · [File Format](SPEC.md) · [Security Policy](SECURITY.md) · [Landing](https://davidalmeidac.github.io/sealed-env/)
 

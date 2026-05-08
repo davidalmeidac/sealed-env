@@ -14,14 +14,17 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ### Security
 
-- **CVE-2026-45091 has been formally assigned** to the JWS-payload
-  TOTP-secret leak that affected `0.1.0-alpha.{1,2,3}` and was patched
-  in alpha.4 on 2026-05-07. The MITRE entry is now public at
-  [nvd.nist.gov/vuln/detail/CVE-2026-45091](https://nvd.nist.gov/vuln/detail/CVE-2026-45091).
-  No code change in this entry — references throughout the repository
-  (README, THREAT_MODEL, Java regression tests, CHANGELOG) updated to
-  cite the official identifier alongside the existing GitHub Security
-  Advisory ([GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)).
+- **CVE-2026-45091 has been reserved by a CNA** for the JWS-payload
+  TOTP-secret leak that affected `0.1.0-alpha.{1,2,3}` and was
+  patched in alpha.4 on 2026-05-07. The record is currently in the
+  RESERVED state at
+  [cve.org/CVERecord?id=CVE-2026-45091](https://www.cve.org/CVERecord?id=CVE-2026-45091)
+  pending publication of the full description by the assigning CNA;
+  it will appear in NVD shortly thereafter. No code change in this
+  entry — references throughout the repository (README, THREAT_MODEL,
+  Java regression tests, CHANGELOG) updated to cite the official
+  identifier alongside the existing GitHub Security Advisory
+  ([GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)).
 
 ---
 
@@ -54,7 +57,7 @@ What 0.1.0 represents:
   OIDC-federation pattern for shops that want zero persistent
   master-key storage in CI.
 - A public threat model (T1-T13) and a track record of CVE response.
-  alpha.6 closed [CVE-2026-45091](https://nvd.nist.gov/vuln/detail/CVE-2026-45091)
+  alpha.4 closed [CVE-2026-45091](https://www.cve.org/CVERecord?id=CVE-2026-45091)
   (JWS-payload TOTP-secret leak) in under four hours with cross-stack
   vectors and a migration playbook.
 
@@ -395,8 +398,9 @@ and vice versa.
 
 ## [0.1.0-alpha.4] — 2026-05-07
 
-> **🚨 SECURITY: [CVE-2026-45091](https://nvd.nist.gov/vuln/detail/CVE-2026-45091)
-> ([GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)).
+> **🚨 SECURITY: [CVE-2026-45091](https://www.cve.org/CVERecord?id=CVE-2026-45091)
+> (RESERVED, full record pending CNA publication; advisory:
+> [GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)).
 > This release fixes a critical issue in `enterprise` mode. Prior versions
 > (alpha.1, alpha.2, alpha.3) embedded the operator's TOTP secret in the JWS
 > payload of every unseal token. JWS payload is base64-encoded JSON, NOT
