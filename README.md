@@ -264,22 +264,36 @@ If your team needs the Doppler/Vault feature set, use them. `sealed-env` is the 
 - 🔑 [Enterprise mode walkthrough](docs/05-enterprise-mode.md) — TOTP + deploy binding
 - 📐 [File format anatomy](docs/06-format-anatomy.md) — what's inside `.env.sealed`
 - 🛠️ [Operational guide](docs/07-operational-guide.md) — for sysadmins, managers, and founders (no code)
-- ☁️ [CI/CD + cloud recipes](docs/08-cicd-recipes.md) — GitHub Actions, GitLab, AWS, GCP, Vercel, Docker, K8s
+- ☁️ [CI/CD + cloud recipes](docs/08-cicd-recipes.md) — GitHub Actions, GitLab, Bitbucket, CircleCI, Jenkins, Azure, AWS, GCP, Vercel, Railway, Docker, K8s
+- 🔄 [Project lifecycle](docs/09-lifecycle.md) — init → onboarding → deploy as one narrative
+- 🎯 [Decrypt strategies](docs/10-decrypt-strategies.md) — host-side vs in-process trade-off, `deploy --remote` spec
 - 📋 [Format specification](SPEC.md) — the canonical wire format (v1)
 - 🛡️ [Security policy](SECURITY.md) — how to report vulnerabilities
 
 ## Project status
 
-**v0.1.0 — early.** API is mostly stable but minor breaking changes possible until v1.0.
-Cryptographic format (`SEALED-ENV-V1`) is **frozen** and will remain readable forever.
+**v0.1.0 — stable.** The wire format (`SEALED-ENV-V1`) is **frozen** and
+will remain readable forever. The public API is stable. Bug-fix and
+non-breaking feature releases land as `0.1.x`; breaking changes wait
+for `0.2.0`.
+
+**What's in 0.1.0:**
+
+- [x] Three modes: `basic`, `team`, `enterprise` (TOTP-bound deploys)
+- [x] Node CLI (`init`, `encrypt`, `decrypt`, `get`/`set`/`edit`/`diff`, `exec`, `deploy`, `keychain`)
+- [x] `deploy --remote` for Model A host-side decrypt deploys
+- [x] Cross-stack: Node + Java libraries reading the same wire format
+- [x] Spring Boot 3 starter (auto-config + `@Value` support)
+- [x] OS keychain backend (Windows DPAPI, macOS Keychain, Linux secret-tool)
+- [x] 17 platform CI/CD recipes including OIDC federation
+- [x] Cryptographic test vectors validated cross-stack in CI
 
 **Roadmap:**
 
-- [x] v0.1.0 — Node basic + enterprise modes, CLI, Spring Boot starter
-- [ ] v0.2.0 — `team` mode + audit log + heap dump filter
-- [ ] v0.3.0 — Hardware-backed keys (DPAPI / Keychain / Secret Service)
-- [ ] v0.4.0 — FIDO2/YubiKey alternative to TOTP
-- [ ] v0.5.0 — Shamir Secret Sharing (threshold unsealing)
+- [ ] v0.1.x — `sealed-env doctor` + `install-hooks` (non-breaking)
+- [ ] v0.2.0 — Java CLI (Maven-distributed) · Shamir Secret Sharing · sidecar pattern
+- [ ] v0.3.0 — `memfd_secret` Linux memory protection · heap-dump filter
+- [ ] v1.0 — Hardware-backed wrapping (TPM / Secure Enclave / YubiKey)
 
 ## Contributing
 

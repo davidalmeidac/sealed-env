@@ -1,0 +1,1768 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>sealed-env · presentación</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ───────────────────────── Tokens ───────────────────────── */
+    :root {
+      --cream:       #f1ebe0;
+      --cream-deep:  #e8dfce;
+      --cream-edge:  #ddd2bc;
+      --ink:         #1a1612;
+      --ink-soft:    #3a3530;
+      --ink-faint:   rgba(26, 22, 18, 0.55);
+      --wax:         #a8201a;
+      --wax-dark:    #7a1411;
+      --rule:        rgba(26, 22, 18, 0.14);
+      --rule-strong: rgba(26, 22, 18, 0.32);
+
+      --font-display: 'Cinzel', 'Trajan Pro', serif;
+      --font-body:    'Fraunces', Georgia, serif;
+      --font-mono:    'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0; padding: 0;
+      height: 100%;
+      background: var(--cream);
+      color: var(--ink);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      background-image:
+        radial-gradient(circle at 18% 22%, var(--cream-deep) 0%, transparent 32%),
+        radial-gradient(circle at 82% 78%, var(--cream-deep) 0%, transparent 30%);
+      opacity: 0.55;
+    }
+
+    main {
+      position: relative;
+      width: 100vw; height: 100vh;
+      overflow: hidden;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      /* `safe center` keeps content vertically centered when it fits the
+         viewport, but switches to top-aligned + scrollable when the
+         content is taller than the viewport. Without `safe`, overflow
+         would cause content to clip silently from the TOP, hiding the
+         eyebrow + title — the worst failure mode for a slide deck. */
+      align-content: safe center;
+      padding: clamp(1.5rem, 3.5vw, 3rem) clamp(2rem, 5vw, 4rem) clamp(3.5rem, 5vw, 4.5rem);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 320ms ease, transform 320ms ease;
+      pointer-events: none;
+      z-index: 1;
+      will-change: opacity, transform;
+      overflow-y: auto;
+      overflow-x: hidden;
+      /* Scrollbar styling — terracotta on cream, never the default ugly. */
+      scrollbar-width: thin;
+      scrollbar-color: var(--rule-strong) transparent;
+    }
+
+    .slide::-webkit-scrollbar { width: 8px; }
+    .slide::-webkit-scrollbar-track { background: transparent; }
+    .slide::-webkit-scrollbar-thumb {
+      background: var(--rule-strong);
+      border-radius: 4px;
+    }
+    .slide::-webkit-scrollbar-thumb:hover { background: var(--wax); }
+
+    .slide[data-active="true"] {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .slide__inner {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    /* ─────────────────── Common type ─────────────────── */
+    .eyebrow {
+      font-family: var(--font-display);
+      font-size: clamp(0.7rem, 0.85vw, 0.82rem);
+      font-weight: 700;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: var(--wax);
+      margin: 0 0 1.2rem;
+    }
+
+    h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: 700; color: var(--ink); }
+
+    h1.title {
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1.05;
+      letter-spacing: -0.005em;
+      margin-bottom: 0.6rem;
+    }
+
+    h2 {
+      font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+      line-height: 1.15;
+    }
+
+    .lede {
+      font-family: var(--font-body);
+      font-size: clamp(1.05rem, 1.4vw, 1.25rem);
+      line-height: 1.5;
+      color: var(--ink-soft);
+      max-width: 60ch;
+    }
+    .lede strong { color: var(--ink); font-weight: 600; }
+    .lede em { font-style: italic; color: var(--wax-dark); }
+
+    /* The "explained for everyone" callout — appears below the title on
+       technical slides. Plain-language framing first, mechanism second. */
+    .plain {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.9rem;
+      align-items: start;
+      padding: 1rem 1.3rem;
+      background: var(--cream-deep);
+      border-left: 3px solid var(--wax);
+      max-width: 64ch;
+      margin: 0 0 1.8rem;
+    }
+    .plain::before {
+      content: "EN PALABRAS LLANAS";
+      font-family: var(--font-display);
+      font-size: 0.65rem;
+      letter-spacing: 0.24em;
+      color: var(--wax);
+      font-weight: 700;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      align-self: stretch;
+      padding-right: 0.4rem;
+      border-right: 1px solid var(--rule-strong);
+    }
+    .plain p {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 1rem;
+      line-height: 1.5;
+      color: var(--ink-soft);
+    }
+    .plain p strong { color: var(--ink); font-weight: 600; }
+    .plain p em { font-style: italic; color: var(--wax-dark); }
+
+    p { margin: 0 0 0.8rem; }
+    ul { padding-left: 1.2em; margin: 0; }
+    li { margin-bottom: 0.4rem; line-height: 1.55; }
+
+    code, .mono {
+      font-family: var(--font-mono);
+      font-size: 0.9em;
+      color: var(--wax-dark);
+    }
+
+    /* ─────────────────── Slide 1: Cover ─────────────────── */
+    .cover { grid-template-columns: 1fr 1fr; gap: clamp(2rem, 5vw, 5rem); align-items: center; }
+    .cover__seal { display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .cover__seal svg { width: min(440px, 100%); height: auto; }
+    .cover__text { display: flex; flex-direction: column; gap: 1.2rem; }
+    .cover h1 {
+      font-family: var(--font-display);
+      font-size: clamp(3.5rem, 6.5vw, 6.4rem);
+      font-weight: 700;
+      line-height: 0.92;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+    .cover__tagline {
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: clamp(1.2rem, 1.7vw, 1.5rem);
+      color: var(--ink-soft);
+      max-width: 32ch;
+      line-height: 1.4;
+    }
+    .cover__meta {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--rule-strong);
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+
+    /* ─────────────────── Slide 2: Quién soy ─────────────────── */
+    .slide__inner.author-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: clamp(2rem, 5vw, 5rem);
+      align-items: center;
+    }
+    .author__bio { padding-right: 1rem; }
+    .author__name {
+      font-family: var(--font-display);
+      font-size: clamp(2.2rem, 4vw, 3.2rem);
+      line-height: 1;
+      margin: 0 0 1rem;
+    }
+    .author__role {
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: 1.4rem;
+      color: var(--wax-dark);
+      margin: 0 0 2rem;
+    }
+    .author__bullets {
+      list-style: none; padding: 0;
+      font-size: 1.1rem;
+      line-height: 1.6;
+    }
+    .author__bullets li {
+      padding-left: 1.4em;
+      position: relative;
+      margin-bottom: 0.6rem;
+    }
+    .author__bullets li::before {
+      content: "·";
+      position: absolute;
+      left: 0;
+      color: var(--wax);
+      font-weight: 700;
+      font-size: 1.5em;
+      top: -0.15em;
+    }
+    .author__tags {
+      margin-top: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem 0.8rem;
+    }
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      padding: 0.32em 0.8em;
+      border: 1px solid var(--rule-strong);
+      color: var(--ink);
+    }
+    .tag--wax {
+      color: var(--cream);
+      background: var(--wax);
+      border-color: var(--wax);
+    }
+    .author__monogram { display: flex; align-items: center; justify-content: center; }
+    .author__monogram svg { width: 100%; max-width: 360px; height: auto; opacity: 0.92; }
+
+    /* ─────────────────── Slide 3: Problem ─────────────────── */
+    .problem .slide__inner { max-width: 1280px; }
+    .problem h1 { margin-bottom: 0.4rem; }
+    .problem__lede {
+      font-size: 1.15rem;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      margin-bottom: 2rem;
+      max-width: 68ch;
+    }
+    .problem__lede em { font-style: italic; color: var(--wax-dark); }
+
+    .attacks {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      border-top: 1px solid var(--ink);
+      border-bottom: 1px solid var(--ink);
+    }
+    .attack { padding: 1.3rem 1.3rem 1.3rem 0; }
+    .attack + .attack { padding-left: 1.3rem; border-left: 1px solid var(--rule-strong); }
+    .attack__year {
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: var(--wax);
+      margin-bottom: 0.5rem;
+    }
+    .attack__name {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 700;
+      line-height: 1.1;
+      margin: 0 0 0.5rem;
+    }
+    .attack__plain {
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: 0.98rem;
+      color: var(--wax-dark);
+      margin: 0 0 0.6rem;
+      line-height: 1.4;
+    }
+    .attack__detail {
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      margin: 0 0 0.6rem;
+    }
+    .attack__impact {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--wax-dark);
+    }
+
+    .problem__conclusion {
+      margin-top: 2rem;
+      padding-top: 1.2rem;
+      border-top: 2px solid var(--wax);
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: 1.4rem;
+      max-width: 50ch;
+    }
+
+    /* ─────────────────── Slide 4: Solution ─────────────────── */
+    .solution .slide__inner { max-width: 1280px; }
+    .solution__grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 3rem;
+      align-items: start;
+      margin-top: 0.5rem;
+    }
+    .solution__primitives {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      border-top: 1px solid var(--rule-strong);
+    }
+    .solution__primitives li {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 1rem;
+      padding: 0.7rem 0;
+      border-bottom: 1px solid var(--rule);
+      align-items: baseline;
+      margin: 0;
+    }
+    .solution__primitives li::before { display: none; }
+    .solution__primitives dt {
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+    .solution__primitives dd {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      color: var(--ink);
+    }
+    .solution__quote {
+      align-self: stretch;
+      padding: 1.5rem 1.8rem;
+      background: var(--cream-deep);
+      border-left: 3px solid var(--wax);
+    }
+    .solution__quote h3 {
+      font-size: 0.95rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--wax-dark);
+      margin-bottom: 0.8rem;
+      font-weight: 700;
+    }
+    .solution__quote p {
+      font-family: var(--font-body);
+      font-size: 1rem;
+      line-height: 1.5;
+      margin-bottom: 0.6rem;
+      color: var(--ink-soft);
+    }
+    .solution__quote p strong { color: var(--ink); }
+
+    /* ─────────────────── Slide 5: Actors (silhouettes) ─────────────────── */
+    .actors .slide__inner { max-width: 1280px; }
+
+    .actors__grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1.5rem;
+      align-items: center;
+      margin-top: 1.5rem;
+    }
+
+    .actor {
+      padding: 1.5rem 1.8rem;
+      border: 1px solid var(--rule-strong);
+      background: var(--cream);
+      position: relative;
+      min-height: 320px;
+    }
+    .actor--good { border-color: var(--ink); }
+    .actor--limited { border-color: var(--rule-strong); background: var(--cream-deep); }
+
+    .actor__icon {
+      width: 56px;
+      height: 56px;
+      color: var(--ink);
+      margin-bottom: 1rem;
+    }
+    .actor--limited .actor__icon { color: var(--ink-soft); }
+
+    .actor__label {
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--wax);
+      margin-bottom: 0.4rem;
+    }
+    .actor__name {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 1rem;
+      line-height: 1.1;
+    }
+
+    .actor__list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .actor__list li {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--rule);
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      line-height: 1.4;
+      color: var(--ink-soft);
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 0.6rem;
+      align-items: baseline;
+      margin: 0;
+    }
+    .actor__list li::before { display: none; }
+    .actor__list li:last-child { border-bottom: none; }
+    .actor__list .check { color: var(--wax); font-weight: 700; }
+    .actor__list .cross { color: var(--ink-faint); font-weight: 700; }
+
+    .actors__arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      padding: 0 0.5rem;
+    }
+    .actors__arrow svg {
+      width: 80px;
+      height: 24px;
+      color: var(--wax);
+    }
+    .actors__arrow span {
+      font-family: var(--font-display);
+      font-size: 0.62rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--wax-dark);
+      text-align: center;
+      max-width: 11ch;
+      line-height: 1.4;
+    }
+
+    .actors__caption {
+      margin-top: 1.5rem;
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: 1rem;
+      color: var(--ink-soft);
+      max-width: 80ch;
+      line-height: 1.5;
+    }
+
+    /* ─────────────────── Slide 6: Mermaid deploy flow ─────────────────── */
+    .flow .slide__inner { max-width: 1280px; }
+    .flow__container {
+      margin-top: 1rem;
+      padding: 1.5rem;
+      background: var(--cream-deep);
+      border: 1px solid var(--rule-strong);
+      min-height: 380px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .flow__container .mermaid {
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    /* ─────────────────── Slide 7: 3 modes ─────────────────── */
+    .modes .slide__inner { max-width: 1280px; }
+    .modes__table {
+      margin-top: 1rem;
+      border-collapse: collapse;
+      width: 100%;
+      font-family: var(--font-body);
+    }
+    .modes__table th, .modes__table td {
+      padding: 0.95rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--rule);
+      vertical-align: top;
+    }
+    .modes__table thead th {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      font-weight: 700;
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 0.8rem;
+    }
+    .modes__table tbody th {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--wax);
+    }
+    .modes__table tbody td {
+      font-size: 0.95rem;
+      color: var(--ink-soft);
+      line-height: 1.5;
+    }
+    .modes__table .check { color: var(--wax); font-weight: 700; }
+    .modes__table .cross { color: var(--ink-faint); }
+
+    /* ─────────────────── Slide 8: CVE story ─────────────────── */
+    .cve .slide__inner { max-width: 1280px; }
+    .cve__header {
+      display: flex;
+      align-items: baseline;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--rule-strong);
+    }
+    .cve__id {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--wax);
+    }
+    .cve__layout {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 2.2rem;
+    }
+    .cve__quote {
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: 1.1rem;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      padding: 1rem 0 1rem 1.3rem;
+      border-left: 3px solid var(--wax);
+      margin-bottom: 1.2rem;
+    }
+    .cve__code {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      line-height: 1.6;
+      background: var(--cream-deep);
+      border: 1px solid var(--rule-strong);
+      padding: 1rem 1.3rem;
+      color: var(--ink);
+    }
+    .cve__code .filename {
+      display: block;
+      color: var(--ink-faint);
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.6rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--rule);
+    }
+    .cve__code .ln { color: var(--ink-faint); user-select: none; padding-right: 1em; }
+    .cve__code .red { color: var(--wax-dark); font-weight: 500; }
+    .cve__response { display: flex; flex-direction: column; gap: 0.8rem; }
+    .cve__response h3 {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--wax);
+      margin: 0;
+    }
+    .cve__response .timer {
+      font-family: var(--font-display);
+      font-size: clamp(2.4rem, 4.2vw, 3.2rem);
+      font-weight: 700;
+      line-height: 1;
+      margin: 0;
+    }
+    .cve__response .timer small {
+      display: block;
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: 0.95rem;
+      color: var(--ink-soft);
+      font-weight: 400;
+      margin-top: 0.3rem;
+    }
+    .cve__steps {
+      list-style: none;
+      padding: 0;
+      margin: 0.4rem 0 0;
+      counter-reset: step;
+      font-size: 0.92rem;
+    }
+    .cve__steps li {
+      padding: 0.32rem 0 0.32rem 2.2em;
+      position: relative;
+      counter-increment: step;
+      line-height: 1.45;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+    .cve__steps li::before {
+      content: counter(step, decimal-leading-zero);
+      position: absolute;
+      left: 0;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--wax);
+      top: 0.5em;
+    }
+
+    /* ─────────────────── Slide 9: Lessons ─────────────────── */
+    .lessons__grid {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    .lesson {
+      padding: 1.2rem 0;
+      border-bottom: 1px solid var(--rule);
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 2rem;
+      align-items: baseline;
+    }
+    .lesson:last-child { border-bottom: none; }
+    .lesson__num {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--wax);
+    }
+    .lesson__body h3 {
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: 1.3rem;
+      font-weight: 500;
+      line-height: 1.3;
+      color: var(--ink);
+      margin: 0 0 0.4rem;
+    }
+    .lesson__body p {
+      font-family: var(--font-body);
+      font-size: 1rem;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      margin: 0;
+      max-width: 70ch;
+    }
+    .lesson__body code {
+      font-family: var(--font-mono);
+      font-size: 0.85em;
+      color: var(--wax-dark);
+    }
+
+    /* ─────────────────── Slide 10: Velocity (vertical timeline) ─────────────────── */
+    .velocity .slide__inner { max-width: 1080px; }
+
+    .velocity__timeline {
+      margin-top: 1.5rem;
+      list-style: none;
+      padding: 0;
+      position: relative;
+    }
+    .velocity__timeline::before {
+      content: "";
+      position: absolute;
+      left: 92px;
+      top: 8px;
+      bottom: 8px;
+      width: 1px;
+      background: var(--rule-strong);
+    }
+    .velocity__timeline li {
+      display: grid;
+      grid-template-columns: 80px 22px 1fr;
+      gap: 1rem;
+      padding: 0.45rem 0;
+      align-items: baseline;
+      margin: 0;
+    }
+    .velocity__timeline li::before { display: none; }
+    .velocity__timeline .ver {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--ink);
+      text-align: right;
+    }
+    .velocity__timeline .dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: var(--cream);
+      border: 2px solid var(--wax);
+      align-self: center;
+      justify-self: center;
+      position: relative;
+      z-index: 1;
+    }
+    .velocity__timeline .pulse {
+      background: var(--wax);
+      box-shadow: 0 0 0 4px rgba(168, 32, 26, 0.18);
+    }
+    .velocity__timeline .desc {
+      font-family: var(--font-body);
+      font-size: 1rem;
+      line-height: 1.5;
+      color: var(--ink-soft);
+    }
+    .velocity__timeline .desc strong { color: var(--ink); font-weight: 600; }
+    .velocity__timeline .desc em { color: var(--wax-dark); font-style: italic; }
+
+    /* ─────────────────── Slide 11: Stack ─────────────────── */
+    .stack .slide__inner { max-width: 1280px; }
+    .stack__columns {
+      display: grid;
+      grid-template-columns: 1fr 1px 1fr;
+      gap: 0;
+      margin-top: 1.5rem;
+    }
+    .stack__divider { background: var(--rule-strong); }
+    .stack__col { padding: 0 2rem; }
+    .stack__col:first-of-type { padding-left: 0; }
+    .stack__col:last-of-type { padding-right: 0; }
+    .stack__col h3 {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin: 0 0 1rem;
+      color: var(--ink);
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+    }
+    .stack__col h3 small {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--wax);
+      font-weight: 400;
+    }
+    .stack__col ul { list-style: none; padding: 0; margin: 0; }
+    .stack__col li {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 0.8rem;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--rule);
+      font-size: 0.92rem;
+      line-height: 1.4;
+      align-items: baseline;
+      margin: 0;
+    }
+    .stack__col li::before { display: none; }
+    .stack__col li strong {
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+    .stack__col li span {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--ink);
+    }
+
+    /* ─────────────────── Slide 12: Impact ─────────────────── */
+    .impact .slide__inner { max-width: 1280px; }
+    .impact__grid {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 3rem;
+      margin-top: 1.5rem;
+      align-items: start;
+    }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem 2rem; }
+    .stat { padding-top: 0.8rem; border-top: 2px solid var(--wax); }
+    .stat__num {
+      font-family: var(--font-display);
+      font-size: clamp(2.3rem, 4.8vw, 3.6rem);
+      font-weight: 700;
+      line-height: 1;
+      color: var(--ink);
+      margin: 0 0 0.3rem;
+    }
+    .stat__num small {
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: 1rem;
+      color: var(--wax-dark);
+      font-weight: 400;
+      vertical-align: 0.1em;
+    }
+    .stat__label {
+      font-family: var(--font-body);
+      font-size: 0.92rem;
+      line-height: 1.4;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+    .links { list-style: none; padding: 0; margin: 0; }
+    .links li { padding: 0.7rem 0; border-bottom: 1px solid var(--rule); margin: 0; }
+    .links li::before { display: none; }
+    .links a {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 1rem;
+      align-items: baseline;
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
+    .links a strong {
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--wax);
+    }
+    .links a span {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      border-bottom: 1px dashed var(--rule-strong);
+      padding-bottom: 1px;
+    }
+
+    /* ─────────────────── Slide 13: Roadmap ─────────────────── */
+    .roadmap__list {
+      margin-top: 1rem;
+      list-style: none;
+      padding: 0;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.8rem 2.5rem;
+    }
+    .roadmap__list li { padding: 0.8rem 0; border-top: 1px solid var(--rule-strong); margin: 0; }
+    .roadmap__list li::before { display: none; }
+    .roadmap__list h3 {
+      font-family: var(--font-body);
+      font-style: italic;
+      font-size: 1.2rem;
+      font-weight: 500;
+      line-height: 1.3;
+      color: var(--ink);
+      margin: 0 0 0.3rem;
+    }
+    .roadmap__list p {
+      font-size: 0.92rem;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+
+    /* ─────────────────── Slide 14: Closing ─────────────────── */
+    .closing { align-items: center; }
+    .closing .slide__inner { max-width: 980px; }
+    .closing__epigraph {
+      font-family: var(--font-display);
+      font-size: clamp(1.6rem, 3.2vw, 2.6rem);
+      font-weight: 500;
+      line-height: 1.2;
+      color: var(--ink);
+      max-width: 24ch;
+    }
+    .closing__epigraph em {
+      font-family: var(--font-body);
+      font-style: italic;
+      font-weight: 400;
+      color: var(--wax-dark);
+    }
+    .closing__attrib {
+      margin-top: 2rem;
+      padding-top: 1.2rem;
+      border-top: 1px solid var(--rule-strong);
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+
+    /* ─────────────────── Slide 15: Contact ─────────────────── */
+    .contact { align-items: center; }
+    .contact .slide__inner {
+      max-width: 880px;
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+    .contact__seal { display: flex; }
+    .contact__seal svg { width: 100%; max-width: 200px; height: auto; opacity: 0.92; }
+    .contact__details {
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+      line-height: 1.55;
+      color: var(--ink-soft);
+    }
+    .contact__details h2 {
+      font-family: var(--font-display);
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+      font-weight: 700;
+      margin: 0 0 1.2rem;
+      color: var(--ink);
+    }
+    .contact__row {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 1rem;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid var(--rule);
+      align-items: baseline;
+    }
+    .contact__row:last-of-type { border-bottom: none; }
+    .contact__row strong {
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--wax);
+    }
+    .contact__row span {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--ink);
+    }
+
+    /* ─────────────────── Chrome ─────────────────── */
+    .chrome {
+      position: fixed;
+      z-index: 10;
+      pointer-events: none;
+      font-family: var(--font-display);
+      font-size: 0.7rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+    .chrome--bl { bottom: 1.5rem; left: 1.5rem; }
+    .chrome--br {
+      bottom: 1.5rem; right: 1.5rem;
+      display: flex; align-items: center; gap: 0.8rem;
+    }
+    .chrome__counter {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--ink);
+    }
+    .nav-dots { pointer-events: auto; display: flex; gap: 0.4rem; align-items: center; }
+    .nav-dots button {
+      appearance: none;
+      width: 6px; height: 6px;
+      padding: 0;
+      border: none;
+      background: var(--rule-strong);
+      cursor: pointer;
+      transition: background 200ms ease, transform 200ms ease;
+    }
+    .nav-dots button:hover { background: var(--wax); transform: scale(1.4); }
+    .nav-dots button[aria-current="true"] { background: var(--wax); transform: scale(1.4); }
+
+    /* ─────────────────── Responsive ─────────────────── */
+    @media (max-width: 880px) {
+      .cover, .slide__inner.author-grid, .solution__grid, .cve__layout, .impact__grid, .actors__grid {
+        grid-template-columns: 1fr !important;
+        gap: 2rem;
+      }
+      .actors__arrow { transform: rotate(90deg); padding: 1rem 0; }
+      .stack__columns { grid-template-columns: 1fr; }
+      .stack__divider { display: none; }
+      .stack__col { padding: 1.5rem 0; border-top: 1px solid var(--rule-strong); }
+      .attacks { grid-template-columns: 1fr; }
+      .attack + .attack { padding-left: 0; border-left: none; border-top: 1px solid var(--rule-strong); padding-top: 1rem; }
+      .roadmap__list { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: 1fr; }
+      .contact .slide__inner { grid-template-columns: 1fr; }
+    }
+
+    /* ─────────────────── Print ─────────────────── */
+    @media print {
+      @page { size: 16in 9in; margin: 0; }
+      body, html { background: var(--cream); height: auto; overflow: visible; }
+      .chrome { display: none; }
+      main { width: auto; height: auto; }
+      .slide {
+        position: relative;
+        page-break-after: always;
+        opacity: 1 !important;
+        transform: none !important;
+        pointer-events: auto !important;
+        min-height: 9in;
+      }
+      .slide:last-of-type { page-break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<main id="deck">
+
+  <!-- ───────────── 1. Cover ───────────── -->
+  <section class="slide cover" data-active="true">
+    <div class="cover__seal" aria-hidden="true">
+      <svg viewBox="0 0 280 304" role="img" aria-label="sealed-env Roman sigillum">
+        <defs>
+          <filter id="grain1" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="7"/>
+            <feColorMatrix values="0 0 0 0 0.10 0 0 0 0 0.08 0 0 0 0 0.07 0 0 0 0.10 0"/>
+            <feComposite in2="SourceGraphic" operator="in"/>
+          </filter>
+          <filter id="wax1" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="3"/>
+            <feColorMatrix values="0 0 0 0 0.30 0 0 0 0 0.05 0 0 0 0 0.04 0 0 0 0.18 0"/>
+            <feComposite in2="SourceGraphic" operator="in"/>
+          </filter>
+          <path id="wax" d="M 140 20 C 166 19, 190 26, 211 40 C 234 54, 252 76, 259 104 C 264 130, 262 156, 252 180 C 242 203, 225 223, 204 236 C 181 250, 156 256, 131 254 C 104 252, 80 242, 61 225 C 42 208, 29 185, 23 159 C 18 133, 21 107, 33 83 C 45 59, 65 40, 90 29 C 106 22, 123 19, 140 20 Z"/>
+          <path id="cream-field" d="M 140 44 C 164 45, 187 53, 204 68 C 221 83, 231 104, 234 126 C 236 149, 231 171, 219 190 C 207 208, 190 222, 170 229 C 149 236, 128 236, 108 229 C 87 222, 70 209, 58 191 C 45 173, 40 151, 42 129 C 44 108, 53 87, 69 72 C 85 57, 107 48, 129 45 C 133 44, 136 44, 140 44 Z"/>
+          <path id="legend1" d="M 140 140 m -68 0 a 68 68 0 1 1 136 0 a 68 68 0 1 1 -136 0"/>
+        </defs>
+        <use href="#wax" fill="#A8201A"/>
+        <g filter="url(#wax1)" opacity="0.55"><use href="#wax" fill="#A8201A"/></g>
+        <path d="M 136 252 C 134 260, 134 268, 136 274 C 138 280, 142 282, 144 276 C 146 270, 146 262, 144 252 Z" fill="#A8201A" opacity="0.85"/>
+        <use href="#cream-field" fill="#f1ebe0"/>
+        <g filter="url(#grain1)" opacity="0.85"><use href="#cream-field" fill="#1a1612"/></g>
+        <use href="#cream-field" fill="none" stroke="#1a1612" stroke-width="0.7" opacity="0.5"/>
+        <circle cx="140" cy="140" r="86" fill="none" stroke="#1a1612" stroke-width="0.5" opacity="0.3"/>
+        <text font-family="'Cinzel', serif" font-size="11" font-weight="700" letter-spacing="3" fill="#1a1612">
+          <textPath href="#legend1" startOffset="50%" text-anchor="middle">·  SEALED  ·  ENV  ·  CVSTOS  ·  ARCANI  ·  MMXXVI  ·</textPath>
+        </text>
+        <g transform="translate(90, 150)" fill="#1a1612" opacity="0.7">
+          <line x1="0" y1="0" x2="14" y2="0" stroke="#1a1612" stroke-width="1" opacity="0.7"/>
+          <ellipse cx="3" cy="-3" rx="5" ry="2" transform="rotate(-25 3 -3)"/>
+          <ellipse cx="9" cy="-4" rx="5" ry="2" transform="rotate(-15 9 -4)"/>
+          <ellipse cx="3" cy="3" rx="5" ry="2" transform="rotate(25 3 3)"/>
+          <ellipse cx="9" cy="4" rx="5" ry="2" transform="rotate(15 9 4)"/>
+        </g>
+        <g transform="translate(190, 150) scale(-1, 1)" fill="#1a1612" opacity="0.7">
+          <line x1="0" y1="0" x2="14" y2="0" stroke="#1a1612" stroke-width="1" opacity="0.7"/>
+          <ellipse cx="3" cy="-3" rx="5" ry="2" transform="rotate(-25 3 -3)"/>
+          <ellipse cx="9" cy="-4" rx="5" ry="2" transform="rotate(-15 9 -4)"/>
+          <ellipse cx="3" cy="3" rx="5" ry="2" transform="rotate(25 3 3)"/>
+          <ellipse cx="9" cy="4" rx="5" ry="2" transform="rotate(15 9 4)"/>
+        </g>
+        <text x="140" y="160" font-family="'Cinzel', serif" font-size="56" font-weight="700" fill="#1a1612" text-anchor="middle" letter-spacing="-1">SE</text>
+        <circle cx="140" cy="190" r="2" fill="#A8201A"/>
+      </svg>
+    </div>
+    <div class="cover__text">
+      <h1>sealed&#8209;env</h1>
+      <p class="cover__tagline">Una librería para guardar secretos sellados con cera digital — y abrirlos solo cuando toca.</p>
+      <div class="cover__meta">
+        <span>David Almeida</span>
+        <span>MMXXVI</span>
+        <span>Open Source</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── 2. Quién soy ───────────── -->
+  <section class="slide">
+    <div class="slide__inner author-grid">
+      <div class="author__bio">
+        <p class="eyebrow">01 · Quién soy</p>
+        <h1 class="author__name">David Almeida</h1>
+        <p class="author__role">Backend developer · 18 años · Bucaramanga, Colombia</p>
+        <ul class="author__bullets">
+          <li>Desarrollador autodidacta desde los 14, con foco en backend</li>
+          <li>Identifico problemas reales y construyo soluciones open source</li>
+          <li>Publico bibliotecas en npm y Maven Central · cross-stack Node + Java</li>
+          <li>Manejo el ciclo OSS completo: firmado, deprecación, divulgación de seguridad, CVE</li>
+        </ul>
+        <div class="author__tags">
+          <span class="tag tag--wax">Java 17</span>
+          <span class="tag tag--wax">Spring Boot 3</span>
+          <span class="tag">TypeScript</span>
+          <span class="tag">PostgreSQL</span>
+          <span class="tag">criptografía aplicada</span>
+          <span class="tag">cross-stack</span>
+          <span class="tag">CI/CD</span>
+        </div>
+      </div>
+      <div class="author__monogram" aria-hidden="true">
+        <svg viewBox="0 0 280 280" role="presentation">
+          <circle cx="140" cy="140" r="115" fill="none" stroke="#1a1612" stroke-width="1.2" opacity="0.6"/>
+          <circle cx="140" cy="140" r="98" fill="none" stroke="#1a1612" stroke-width="0.5" opacity="0.4"/>
+          <text x="140" y="170" font-family="'Cinzel', serif" font-size="120" font-weight="700" fill="#a8201a" text-anchor="middle" letter-spacing="-2">SE</text>
+          <text x="140" y="218" font-family="'Cinzel', serif" font-size="9" font-weight="700" letter-spacing="6" fill="#1a1612" text-anchor="middle">CVSTOS · ARCANI</text>
+          <circle cx="140" cy="195" r="2" fill="#A8201A"/>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── 3. Problem ───────────── -->
+  <section class="slide problem">
+    <div class="slide__inner">
+      <p class="eyebrow">02 · El problema</p>
+      <h1 class="title">Los archivos <code>.env</code> en texto plano dejaron de ser viables.</h1>
+      <p class="problem__lede">
+        En toda app moderna hay un archivo <code>.env</code> con las contraseñas, llaves de API y URLs de bases de datos. <em>El problema:</em> es texto plano. Si alguien accede al disco, lo abre con cualquier editor.
+        <br/><br/>
+        Entre 2024 y 2026 vimos tres oleadas de ataques que demostraron que ese modelo está roto.
+      </p>
+      <div class="attacks">
+        <div class="attack">
+          <div class="attack__year">Sept · Nov 2025</div>
+          <h3 class="attack__name">Shai-Hulud</h3>
+          <p class="attack__plain">Un virus en npm que se replica solo y busca <code>.env</code> en cada máquina infectada.</p>
+          <p class="attack__detail">Worm autorreplicante. Escaneaba el disco, encontraba <code>.env</code>, exfiltraba el contenido a repos públicos.</p>
+          <p class="attack__impact">25,000+ repos comprometidos</p>
+        </div>
+        <div class="attack">
+          <div class="attack__year">Marzo 2025</div>
+          <h3 class="attack__name">tj-actions</h3>
+          <p class="attack__plain">Una herramienta de CI usada por miles de proyectos fue secuestrada para imprimir secrets en logs.</p>
+          <p class="attack__detail">Atacante reescribió la versión publicada. Extraía secrets de la memoria del runner y los printeaba en logs públicos.</p>
+          <p class="attack__impact">23,000+ proyectos afectados</p>
+        </div>
+        <div class="attack">
+          <div class="attack__year">Septiembre 2025</div>
+          <h3 class="attack__name">GhostAction</h3>
+          <p class="attack__plain">327 cuentas de GitHub comprometidas que enviaban todos los secrets de CI a un servidor del atacante.</p>
+          <p class="attack__detail">Workflows con nombres legítimos POSTeaban el environment de CI completo a un servidor externo.</p>
+          <p class="attack__impact">3,325 secrets · 817 repos · días</p>
+        </div>
+      </div>
+      <p class="problem__conclusion">
+        Hace falta cifrar el archivo en disco — y abrirlo solo cuando toca, en el lugar que toca.
+      </p>
+    </div>
+  </section>
+
+  <!-- ───────────── 4. Solution ───────────── -->
+  <section class="slide solution">
+    <div class="slide__inner">
+      <p class="eyebrow">03 · La solución</p>
+      <h1 class="title">sealed-env</h1>
+
+      <div class="plain">
+        <p>
+          La metáfora exacta es <strong>una carta lacrada</strong>. Como hacían los romanos: la carta se cierra, se aplica cera caliente, se presiona un sello (<em>sigillum</em>) que solo el dueño tiene. Cualquiera puede ver la carta sellada en el camino, pero solo abriéndola con la llave correcta — y rompiendo el sello — se lee el contenido.
+          <br/><br/>
+          <strong>sealed-env</strong> hace lo mismo con tu archivo <code>.env</code>: lo cifra con criptografía moderna, te deja commitearlo a git tranquilamente, y solo se abre cuando tu app arranca con la llave correcta.
+        </p>
+      </div>
+
+      <div class="solution__grid">
+        <ul class="solution__primitives">
+          <li><dt>Cifrado</dt><dd>AES-256-GCM</dd></li>
+          <li><dt>Derivación de clave</dt><dd>Argon2id · scrypt</dd></li>
+          <li><dt>Subclaves</dt><dd>HKDF-SHA256 (RFC 5869)</dd></li>
+          <li><dt>Integridad</dt><dd>HMAC-SHA256</dd></li>
+          <li><dt>2do factor</dt><dd>TOTP (RFC 6238)</dd></li>
+          <li><dt>Wire format</dt><dd>SEALED-ENV-V1 · spec abierta</dd></li>
+          <li><dt>Distribución</dt><dd>npm · Maven Central · GPG-signed</dd></li>
+        </ul>
+        <div class="solution__quote">
+          <h3>Tres niveles de seguridad</h3>
+          <p><strong>basic</strong> — un dev solo, una llave maestra. Suficiente para proyectos pequeños.</p>
+          <p><strong>team</strong> — añade firma de integridad. Detecta si alguien modificó el archivo.</p>
+          <p><strong>enterprise</strong> — añade <em>2 factores</em>: para hacer deploy, el operador necesita su llave maestra <em>y</em> un código de 6 dígitos de su Google Authenticator. Cada deploy genera un permiso temporal de 60 segundos.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── 5. Actors / silhouettes ───────────── -->
+  <section class="slide actors">
+    <div class="slide__inner">
+      <p class="eyebrow">04 · Quién tiene qué</p>
+      <h1 class="title" style="font-size: clamp(1.6rem, 2.8vw, 2.4rem); margin-bottom: 0.6rem;">El operador descifra. El servidor solo recibe lo que necesita.</h1>
+
+      <div class="plain">
+        <p>
+          La idea clave: <strong>las llaves nunca tocan el servidor</strong>. El operador (la persona que hace el deploy) tiene las llaves en SU laptop. El servidor solo recibe los valores ya descifrados — únicamente lo que la app necesita para correr. Si alguien hackea el servidor, no consigue las llaves; consigue solo los datos del deploy actual.
+        </p>
+      </div>
+
+      <div class="actors__grid">
+        <!-- Operator -->
+        <div class="actor actor--good">
+          <svg class="actor__icon" viewBox="0 0 100 110" fill="currentColor" aria-hidden="true">
+            <circle cx="50" cy="30" r="22"/>
+            <path d="M 8 110 Q 8 60, 50 56 Q 92 60, 92 110 Z"/>
+          </svg>
+          <p class="actor__label">El operador</p>
+          <h2 class="actor__name">Laptop · OS keychain</h2>
+          <ul class="actor__list">
+            <li><span class="check">●</span><span>Llave maestra</span></li>
+            <li><span class="check">●</span><span>Llave de firma</span></li>
+            <li><span class="check">●</span><span>Secret de TOTP (Google Authenticator)</span></li>
+            <li><span class="check">●</span><span>Genera el permiso temporal en RAM</span></li>
+            <li><span class="check">●</span><span>Descifra el archivo en RAM</span></li>
+          </ul>
+        </div>
+
+        <div class="actors__arrow" aria-hidden="true">
+          <svg viewBox="0 0 80 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="0" y1="12" x2="68" y2="12"/>
+            <polyline points="60,4 72,12 60,20" stroke-linejoin="round" stroke-linecap="round"/>
+          </svg>
+          <span>Solo plaintext env vars</span>
+        </div>
+
+        <!-- Server -->
+        <div class="actor actor--limited">
+          <svg class="actor__icon" viewBox="0 0 100 110" fill="currentColor" aria-hidden="true">
+            <rect x="10" y="14" width="80" height="22" rx="2"/>
+            <rect x="10" y="44" width="80" height="22" rx="2"/>
+            <rect x="10" y="74" width="80" height="22" rx="2"/>
+            <circle cx="22" cy="25" r="3" fill="#a8201a"/>
+            <circle cx="22" cy="55" r="3" fill="#a8201a"/>
+            <circle cx="22" cy="85" r="3" fill="#a8201a"/>
+            <line x1="34" y1="25" x2="78" y2="25" stroke="#1a1612" stroke-opacity="0.3" stroke-width="1.5"/>
+            <line x1="34" y1="55" x2="78" y2="55" stroke="#1a1612" stroke-opacity="0.3" stroke-width="1.5"/>
+            <line x1="34" y1="85" x2="78" y2="85" stroke="#1a1612" stroke-opacity="0.3" stroke-width="1.5"/>
+          </svg>
+          <p class="actor__label">El servidor</p>
+          <h2 class="actor__name">Container · producción</h2>
+          <ul class="actor__list">
+            <li><span class="check">●</span><span><code>$DATABASE_URL</code> &amp; demás env vars de la app</span></li>
+            <li><span class="cross">○</span><span>NO tiene la llave maestra</span></li>
+            <li><span class="cross">○</span><span>NO tiene la llave de firma</span></li>
+            <li><span class="cross">○</span><span>NO tiene el TOTP secret</span></li>
+            <li><span class="cross">○</span><span>NO tiene el permiso temporal</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="actors__caption">Si el servidor se compromete, el atacante ve los valores de <em>este</em> deploy. No puede generar permisos nuevos. No puede leer archivos pasados ni futuros. No escala.</p>
+    </div>
+  </section>
+
+  <!-- ───────────── 6. Mermaid: deploy flow ───────────── -->
+  <section class="slide flow">
+    <div class="slide__inner">
+      <p class="eyebrow">05 · El flujo de un deploy</p>
+      <h1 class="title">Qué pasa, paso a paso</h1>
+      <div class="plain">
+        <p>
+          En modo enterprise, cada vez que se hace un deploy a producción el operador tipea un código de 6 dígitos de su autenticador. Eso autoriza la creación de un <strong>permiso temporal</strong> que solo dura 60 segundos y solo sirve para <em>ese</em> deploy específico. Si el permiso se filtra, expira solo y no sirve para deploys futuros.
+        </p>
+      </div>
+      <div class="flow__container">
+        <div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant Op as Operador (laptop)
+  participant Auth as Authenticator
+  participant File as .env.sealed
+  participant Srv as Servidor / Container
+
+  Op->>Auth: Pide código TOTP
+  Auth-->>Op: 6 dígitos (válido 30s)
+  Op->>File: Lee archivo sellado
+  Note over Op: Genera permiso temporal en RAM<br/>(válido 60s, ligado al commit SHA)
+  Op->>Op: Descifra .env en RAM
+  Op->>Srv: Pasa los plaintext env vars vía SSH
+  Note over Srv: Recibe DATABASE_URL, STRIPE_KEY, etc.<br/>NO recibe llaves ni permiso
+  Srv-->>Op: Container arrancó ✓
+  Note over Op: Permiso expira a los 60s
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── 7. Modes ───────────── -->
+  <section class="slide modes">
+    <div class="slide__inner">
+      <p class="eyebrow">06 · Tres niveles</p>
+      <h1 class="title">Una API · tres niveles de seguridad</h1>
+      <div class="plain">
+        <p>
+          Empezás con <strong>basic</strong> (un dev solo). Subís a <strong>team</strong> cuando colaboras con otros. Subís a <strong>enterprise</strong> cuando el código va a producción. El archivo es el mismo formato — solo se añaden capas de protección.
+        </p>
+      </div>
+      <table class="modes__table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>basic</th>
+            <th>team</th>
+            <th>enterprise</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Cifrado</th>
+            <td><span class="check">✓</span> AES-256-GCM</td>
+            <td><span class="check">✓</span> AES-256-GCM</td>
+            <td><span class="check">✓</span> AES-256-GCM</td>
+          </tr>
+          <tr>
+            <th>Detecta modificaciones</th>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span> firma HMAC</td>
+            <td><span class="check">✓</span> firma HMAC</td>
+          </tr>
+          <tr>
+            <th>2do factor en deploy</th>
+            <td><span class="cross">—</span></td>
+            <td><span class="cross">—</span></td>
+            <td><span class="check">✓</span> TOTP + ligado al commit</td>
+          </tr>
+          <tr>
+            <th>Para quién</th>
+            <td>devs trabajando solos</td>
+            <td>equipos compartiendo el .env</td>
+            <td>producción · enterprise · auditorías</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ───────────── 8. CVE story ───────────── -->
+  <section class="slide cve">
+    <div class="slide__inner">
+      <p class="eyebrow">07 · La historia del bug crítico en mi propia librería</p>
+      <div class="cve__header">
+        <h1 class="title" style="margin: 0;">Cuatro horas · de reporte a fix publicado</h1>
+        <span class="cve__id">GHSA-x3r2-fj3r-g5mv</span>
+      </div>
+
+      <div class="plain">
+        <p>
+          Un revisor externo encontró que el <strong>permiso temporal</strong> contenía dentro de sí el TOTP secret completo. El permiso es texto firmado pero <em>no encriptado</em> — cualquiera que lo viera (en un log, en un dump del servidor) podía sacar el secret y generar permisos nuevos para siempre. Bug crítico en mi propia lib de seguridad.
+        </p>
+      </div>
+
+      <div class="cve__layout">
+        <div>
+          <blockquote class="cve__quote">
+            "El payload del permiso es base64, no encriptado. Cualquiera con acceso al token (logs de CI, dump del container) puede extraer el TOTP secret y generar permisos nuevos para deploys futuros indefinidamente."
+            <br/>— external reviewer
+          </blockquote>
+          <pre class="cve__code"><span class="filename">// node/src/totp/unsealToken.ts</span>
+<span class="ln">53</span> const payload = {
+<span class="ln">54</span>   iss: 'sealed-env-cli',
+<span class="ln">55</span>   iat: now,
+<span class="ln">56</span>   exp: now + ttl,
+<span class="ln">57</span>   <span class="red">totp_secret: input.totpSecret.toString('base64'),</span>
+<span class="ln">58</span>   deploy_id: input.deployId,
+<span class="ln">59</span>   ops_id: randomOpsId(),
+<span class="ln">60</span> };</pre>
+        </div>
+        <div class="cve__response">
+          <h3>Mi respuesta</h3>
+          <p class="timer">04:00<small>de reporte a versión publicada</small></p>
+          <ol class="cve__steps">
+            <li>Reproduje el bug · confirmé el alcance (3 versiones afectadas)</li>
+            <li>Diseñé el fix correcto: una huella derivada, no el secret literal</li>
+            <li>Implementé en Node + Java en lockstep</li>
+            <li>Cambio de wire format documentado en el spec</li>
+            <li>Tests cross-stack regenerados · 14/14 + tests negativos</li>
+            <li>GitHub Security Advisory + solicitud de CVE</li>
+            <li>Versiones afectadas marcadas como deprecated en npm</li>
+            <li>Plan de migración publicado · v0.1.0-alpha.4 lanzada</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── 9. Lessons ───────────── -->
+  <section class="slide">
+    <div class="slide__inner">
+      <p class="eyebrow">08 · Lo que aprendí</p>
+      <h1 class="title">Tres lecciones que documenté en el threat model</h1>
+      <div class="lessons__grid">
+        <div class="lesson">
+          <div class="lesson__num">I</div>
+          <div class="lesson__body">
+            <h3>Un permiso firmado no es un permiso encriptado.</h3>
+            <p>JWT y JWS — los tokens más usados en la web — están <em>firmados</em>, no encriptados. La firma asegura que nadie los modifique, pero su contenido es público. Es un error de diseño común y fácil de cometer bajo presión cuando tu verificador "necesita" el secret para validar.</p>
+          </div>
+        </div>
+        <div class="lesson">
+          <div class="lesson__num">II</div>
+          <div class="lesson__body">
+            <h3>Llevá huellas, nunca los originales.</h3>
+            <p>El fix: en lugar de meter el TOTP secret en el permiso, meto una <em>huella criptográfica</em> ligada al archivo. La huella sirve para validar el permiso, pero no permite reconstruir el secret original. Si el permiso se filtra, la huella es inútil para deploys futuros.</p>
+          </div>
+        </div>
+        <div class="lesson">
+          <div class="lesson__num">III</div>
+          <div class="lesson__body">
+            <h3>Probá lo que NO querés que pase.</h3>
+            <p>Los tests ahora aseveran <strong>ausencias</strong>: el permiso NO contiene el secret literal en ninguna codificación (hex, base64, base32). Las aserciones negativas atrapan regresiones de diseño que las positivas no ven nunca.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── 10. Velocity (Mermaid timeline) ───────────── -->
+  <section class="slide velocity">
+    <div class="slide__inner">
+      <p class="eyebrow">09 · Velocidad de iteración</p>
+      <h1 class="title">8 versiones en 24-48 horas</h1>
+      <div class="plain">
+        <p>
+          De "librería que funciona" a "librería con la que es agradable trabajar". Cada release respondió a fricción real (mía, dogfoodando) o a feedback externo. La <em>alpha.4</em> fue el fix de seguridad crítico.
+        </p>
+      </div>
+      <ol class="velocity__timeline" reversed>
+        <li><span class="ver">alpha.8</span><span class="dot"></span><span class="desc"><strong>OS keychain opt-in</strong> via marker file. <em>Performance: 1.7s → 250ms.</em></span></li>
+        <li><span class="ver">alpha.7</span><span class="dot"></span><span class="desc"><code>exec --enterprise</code>, <code>deploy</code> wrapper, <strong>OS keychain backend</strong> (DPAPI / Keychain / libsecret).</span></li>
+        <li><span class="ver">alpha.6</span><span class="dot"></span><span class="desc">Auto-load <code>.env.local</code>: el operador nunca más tipea <code>export</code>.</span></li>
+        <li><span class="ver">alpha.5</span><span class="dot"></span><span class="desc"><code>doctor</code>, <code>rotate</code>, <code>--token-only</code>, mensajes de error que detectan el shell.</span></li>
+        <li><span class="ver">alpha.4</span><span class="dot pulse"></span><span class="desc"><em>Fix de seguridad crítico.</em> Cambio de wire format, advisory + CVE, plan de migración.</span></li>
+        <li><span class="ver">alpha.3</span><span class="dot"></span><span class="desc"><code>get</code>, <code>set</code>, <code>edit</code>, <code>diff</code> + render de QR para enterprise mode.</span></li>
+        <li><span class="ver">alpha.2</span><span class="dot"></span><span class="desc">Playground · cross-stack vectors · GitHub Pages bilingüe.</span></li>
+        <li><span class="ver">alpha.1</span><span class="dot"></span><span class="desc">Release inicial: Node + Java + Spring Boot starter, los 3 modos.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ───────────── 11. Stack ───────────── -->
+  <section class="slide stack">
+    <div class="slide__inner">
+      <p class="eyebrow">10 · Stack técnico</p>
+      <h1 class="title">Cross-stack en serio</h1>
+      <div class="plain">
+        <p>
+          Mismo formato de archivo, mismas garantías. Un <code>.env</code> sellado en Node se descifra en Java y viceversa. Tests cross-stack versionados que corren en CI cada commit.
+        </p>
+      </div>
+      <div class="stack__columns">
+        <div class="stack__col">
+          <h3>Node <small>sealed-env@0.1.0-alpha.8</small></h3>
+          <ul>
+            <li><strong>lenguaje</strong><span>TypeScript 5.5+, ESM</span></li>
+            <li><strong>runtime</strong><span>Node 20 / 22 LTS</span></li>
+            <li><strong>core deps</strong><span>0 (usa node:crypto)</span></li>
+            <li><strong>cli deps</strong><span>1 (qrcode-terminal, lazy)</span></li>
+            <li><strong>publish</strong><span>npm + OIDC provenance</span></li>
+            <li><strong>tests</strong><span>node:test · 14/14</span></li>
+          </ul>
+        </div>
+        <div class="stack__divider"></div>
+        <div class="stack__col">
+          <h3>Java <small>io.github.davidalmeidac · 0.1.0-alpha.8</small></h3>
+          <ul>
+            <li><strong>lenguaje</strong><span>Java 17 (target 17 + 21)</span></li>
+            <li><strong>framework</strong><span>Spring Boot 3.3 starter</span></li>
+            <li><strong>crypto</strong><span>Bouncy Castle 1.84</span></li>
+            <li><strong>build</strong><span>Maven · GPG signed</span></li>
+            <li><strong>publish</strong><span>Maven Central via Sonatype</span></li>
+            <li><strong>tests</strong><span>JUnit 5 · cross-stack vectors</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── 12. Impact ───────────── -->
+  <section class="slide impact">
+    <div class="slide__inner">
+      <p class="eyebrow">11 · Impacto y enlaces</p>
+      <h1 class="title">Lo que envié al mundo</h1>
+      <div class="impact__grid">
+        <div class="stats">
+          <div class="stat">
+            <div class="stat__num">8<small>alpha</small></div>
+            <p class="stat__label">releases publicados en 24-48h en npm y Maven Central</p>
+          </div>
+          <div class="stat">
+            <div class="stat__num">14<small>/14</small></div>
+            <p class="stat__label">tests en CI matrix · Linux/macOS/Windows × JDK 17/21</p>
+          </div>
+          <div class="stat">
+            <div class="stat__num">1<small>CVE</small></div>
+            <p class="stat__label">GHSA-x3r2-fj3r-g5mv · respondido en 4h end-to-end</p>
+          </div>
+          <div class="stat">
+            <div class="stat__num">~30<small>commits</small></div>
+            <p class="stat__label">en <code>main</code> con commits narrativos y trazables</p>
+          </div>
+        </div>
+        <ul class="links">
+          <li><a href="https://github.com/davidalmeidac/sealed-env" target="_blank"><strong>Repo</strong><span>github.com/davidalmeidac/sealed-env</span></a></li>
+          <li><a href="https://www.npmjs.com/package/sealed-env" target="_blank"><strong>npm</strong><span>npmjs.com/package/sealed-env</span></a></li>
+          <li><a href="https://central.sonatype.com/artifact/io.github.davidalmeidac/sealed-env-core" target="_blank"><strong>Maven</strong><span>central.sonatype.com/.../sealed-env-core</span></a></li>
+          <li><a href="https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv" target="_blank"><strong>Advisory</strong><span>GHSA-x3r2-fj3r-g5mv</span></a></li>
+          <li><a href="https://davidalmeidac.github.io/sealed-env/" target="_blank"><strong>Landing</strong><span>davidalmeidac.github.io/sealed-env</span></a></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── 13. Roadmap ───────────── -->
+  <section class="slide">
+    <div class="slide__inner">
+      <p class="eyebrow">12 · Lo que viene</p>
+      <h1 class="title">Roadmap</h1>
+      <div class="plain">
+        <p>
+          Cada feature pesa contra la complejidad que añade y la superficie de ataque que abre. No hay roadmap de "más y más cosas" — hay roadmap de <em>hacer menos, mejor</em>.
+        </p>
+      </div>
+      <ul class="roadmap__list">
+        <li>
+          <h3>Wizards interactivos</h3>
+          <p>Setup y onboarding guiados para sysadmins y founders sin background en cripto.</p>
+        </li>
+        <li>
+          <h3>Integración con 1Password / Bitwarden</h3>
+          <p>Las llaves se sincronizan entre dispositivos del equipo, con audit log y MFA.</p>
+        </li>
+        <li>
+          <h3>Wire format V2</h3>
+          <p>El servidor recibe solo una clave de un solo uso, no la llave maestra.</p>
+        </li>
+        <li>
+          <h3>Spring Boot starter docs</h3>
+          <p>Ejemplos concretos: Kubernetes, AWS ECS, Heroku, bare metal.</p>
+        </li>
+        <li>
+          <h3>Go port</h3>
+          <p>Tercer stack si la demanda lo justifica.</p>
+        </li>
+        <li>
+          <h3>Threat model v2</h3>
+          <p>Memory dumps post-decrypt · TPM/HSM · agentes maliciosos en CI.</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ───────────── 14. Closing ───────────── -->
+  <section class="slide closing">
+    <div class="slide__inner">
+      <p class="eyebrow">13 · Por qué lo construí en público</p>
+      <p class="closing__epigraph">
+        Quería aprender el ciclo open source completo —
+        <em>firma, deprecación, divulgación de seguridad, CVE</em> —
+        antes de necesitarlo en un trabajo.
+      </p>
+      <p class="lede" style="margin-top: 2.5rem; font-size: 1.1rem;">
+        A TCS llevo cross-stack engineering con <strong>seguridad como prioridad de primer orden</strong>: threat models documentados, tests negativos, respuesta profesional ante incidentes, y la disciplina de elegir herramientas que no escalen complejidad sin motivo.
+      </p>
+      <div class="closing__attrib">
+        <span>David Almeida</span>
+        <span>2026 · Open Source</span>
+        <span>MIT License</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── 15. Contact ───────────── -->
+  <section class="slide contact">
+    <div class="slide__inner">
+      <div class="contact__seal" aria-hidden="true">
+        <svg viewBox="0 0 280 304" role="presentation">
+          <defs>
+            <filter id="grain2" x="-5%" y="-5%" width="110%" height="110%">
+              <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="11"/>
+              <feColorMatrix values="0 0 0 0 0.10 0 0 0 0 0.08 0 0 0 0 0.07 0 0 0 0.10 0"/>
+              <feComposite in2="SourceGraphic" operator="in"/>
+            </filter>
+            <path id="wax2" d="M 140 20 C 166 19, 190 26, 211 40 C 234 54, 252 76, 259 104 C 264 130, 262 156, 252 180 C 242 203, 225 223, 204 236 C 181 250, 156 256, 131 254 C 104 252, 80 242, 61 225 C 42 208, 29 185, 23 159 C 18 133, 21 107, 33 83 C 45 59, 65 40, 90 29 C 106 22, 123 19, 140 20 Z"/>
+            <path id="cream-field2" d="M 140 44 C 164 45, 187 53, 204 68 C 221 83, 231 104, 234 126 C 236 149, 231 171, 219 190 C 207 208, 190 222, 170 229 C 149 236, 128 236, 108 229 C 87 222, 70 209, 58 191 C 45 173, 40 151, 42 129 C 44 108, 53 87, 69 72 C 85 57, 107 48, 129 45 C 133 44, 136 44, 140 44 Z"/>
+          </defs>
+          <use href="#wax2" fill="#A8201A"/>
+          <use href="#cream-field2" fill="#f1ebe0"/>
+          <g filter="url(#grain2)" opacity="0.85"><use href="#cream-field2" fill="#1a1612"/></g>
+          <use href="#cream-field2" fill="none" stroke="#1a1612" stroke-width="0.7" opacity="0.5"/>
+          <text x="140" y="170" font-family="'Cinzel', serif" font-size="72" font-weight="700" fill="#1a1612" text-anchor="middle" letter-spacing="-1">SE</text>
+          <circle cx="140" cy="200" r="2" fill="#A8201A"/>
+        </svg>
+      </div>
+      <div class="contact__details">
+        <h2>Gracias.</h2>
+        <div class="contact__row"><strong>Email</strong><span>davidalmeidac@proton.me</span></div>
+        <div class="contact__row"><strong>GitHub</strong><span>github.com/davidalmeidac</span></div>
+        <div class="contact__row"><strong>Repo</strong><span>github.com/davidalmeidac/sealed-env</span></div>
+        <div class="contact__row"><strong>Web</strong><span>davidalmeidac.github.io/sealed-env</span></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="chrome chrome--bl">sealed-env · MMXXVI</div>
+<div class="chrome chrome--br">
+  <nav class="nav-dots" aria-label="Slide navigation"></nav>
+  <span class="chrome__counter"><span id="cur">1</span> / <span id="tot">15</span></span>
+</div>
+
+<!-- Mermaid via CDN. Themed inline below to match the brand palette. -->
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    securityLevel: 'loose',
+    fontFamily: "'JetBrains Mono', 'SF Mono', Consolas, monospace",
+    themeVariables: {
+      // Cream paper, deep ink, terracotta wax — matches the rest of the deck.
+      background:        '#e8dfce',
+      primaryColor:      '#f1ebe0',
+      primaryTextColor:  '#1a1612',
+      primaryBorderColor:'#1a1612',
+      secondaryColor:    '#e8dfce',
+      tertiaryColor:     '#f1ebe0',
+      lineColor:         '#1a1612',
+      textColor:         '#1a1612',
+      noteBkgColor:      '#f1ebe0',
+      noteTextColor:     '#1a1612',
+      noteBorderColor:   '#a8201a',
+      // Sequence diagram specifics
+      actorBkg:          '#f1ebe0',
+      actorBorder:       '#1a1612',
+      actorTextColor:    '#1a1612',
+      actorLineColor:    '#1a1612',
+      signalColor:       '#1a1612',
+      signalTextColor:   '#1a1612',
+      labelBoxBkgColor:  '#f1ebe0',
+      labelBoxBorderColor:'#a8201a',
+      labelTextColor:    '#1a1612',
+      loopTextColor:     '#1a1612',
+      activationBkgColor:'#a8201a',
+      // Gantt
+      gridColor:           'rgba(26, 22, 18, 0.18)',
+      sectionBkgColor:     '#f1ebe0',
+      altSectionBkgColor:  '#e8dfce',
+      sectionBkgColor2:    '#f1ebe0',
+      taskBkgColor:        '#1a1612',
+      taskTextColor:       '#f1ebe0',
+      taskTextLightColor:  '#f1ebe0',
+      taskTextDarkColor:   '#1a1612',
+      taskTextOutsideColor:'#1a1612',
+      taskTextClickableColor:'#a8201a',
+      activeTaskBkgColor:  '#a8201a',
+      activeTaskBorderColor:'#7a1411',
+      doneTaskBkgColor:    '#3a3530',
+      doneTaskBorderColor: '#1a1612',
+      critBkgColor:        '#a8201a',
+      critBorderColor:     '#7a1411',
+      todayLineColor:      '#a8201a',
+    },
+  });
+</script>
+
+<script>
+  (function () {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const dotsEl = document.querySelector('.nav-dots');
+    const curEl = document.getElementById('cur');
+    const totEl = document.getElementById('tot');
+    let idx = 0;
+
+    totEl.textContent = slides.length;
+
+    slides.forEach((_, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', `Slide ${i + 1}`);
+      b.addEventListener('click', () => go(i));
+      dotsEl.appendChild(b);
+    });
+    const dots = Array.from(dotsEl.children);
+
+    function go(n) {
+      n = Math.max(0, Math.min(slides.length - 1, n));
+      slides[idx].setAttribute('data-active', 'false');
+      dots[idx].setAttribute('aria-current', 'false');
+      idx = n;
+      slides[idx].setAttribute('data-active', 'true');
+      dots[idx].setAttribute('aria-current', 'true');
+      curEl.textContent = idx + 1;
+      history.replaceState(null, '', `#${idx + 1}`);
+    }
+
+    const hashN = parseInt(location.hash.replace('#', ''), 10);
+    if (!isNaN(hashN) && hashN >= 1 && hashN <= slides.length) {
+      go(hashN - 1);
+    } else {
+      dots[0].setAttribute('aria-current', 'true');
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      switch (e.key) {
+        case 'ArrowRight': case ' ': case 'PageDown':
+          e.preventDefault(); go(idx + 1); break;
+        case 'ArrowLeft': case 'PageUp':
+          e.preventDefault(); go(idx - 1); break;
+        case 'Home':
+          e.preventDefault(); go(0); break;
+        case 'End':
+          e.preventDefault(); go(slides.length - 1); break;
+      }
+    });
+
+    let touchX = null;
+    document.addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; });
+    document.addEventListener('touchend', (e) => {
+      if (touchX === null) return;
+      const dx = e.changedTouches[0].clientX - touchX;
+      if (Math.abs(dx) > 50) go(idx + (dx < 0 ? 1 : -1));
+      touchX = null;
+    });
+  })();
+</script>
+
+</body>
+</html>

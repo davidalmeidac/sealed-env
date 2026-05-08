@@ -12,7 +12,9 @@ the page you need.
 5. [Enterprise mode](./05-enterprise-mode.md) — TOTP + deploy challenge
 6. [File format anatomy](./06-format-anatomy.md) — what's inside `.env.sealed`
 7. [Operational guide](./07-operational-guide.md) — for sysadmins, managers, and founders (no code)
-8. [CI/CD + cloud recipes](./08-cicd-recipes.md) — GitHub Actions, GitLab, AWS, GCP, Vercel, Docker, Kubernetes…
+8. [CI/CD + cloud recipes](./08-cicd-recipes.md) — GitHub Actions, GitLab, Bitbucket, CircleCI, Jenkins, Azure, AWS, GCP, Vercel, Railway, Docker, Kubernetes…
+9. [Project lifecycle](./09-lifecycle.md) — init → onboarding → deploy as one narrative
+10. [Decrypt strategies](./10-decrypt-strategies.md) — host-side vs in-process trade-off, `deploy --remote` spec
 
 ## Reference
 

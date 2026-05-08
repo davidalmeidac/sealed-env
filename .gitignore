@@ -30,3 +30,6 @@ coverage/
 *.key
 maven-secrets/
 .maven-secrets/
+
+# Local-only presentation diagrams (work in progress, not for the repo)
+presentation/diagrams/

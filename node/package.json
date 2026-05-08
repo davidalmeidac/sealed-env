@@ -1,6 +1,6 @@
 {
   "name": "sealed-env",
-  "version": "0.1.0-alpha.8",
+  "version": "0.1.0",
   "description": "Encrypted .env files with optional TOTP unsealing for production deploys. Cross-stack with the Java port. One minimal CLI dependency.",
   "keywords": [
     "dotenv",
@@ -63,7 +63,7 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "test:compile": "tsc -p tsconfig.test.json",
-    "test:run": "node --test --test-reporter=spec dist/tests/smoke.test.js",
+    "test:run": "node --test --test-reporter=spec \"dist/tests/**/*.test.js\"",
     "test": "npm run test:compile && npm run test:run",
     "test:build": "npm run build && npm run test",
     "lint": "tsc --noEmit",

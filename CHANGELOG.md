@@ -14,6 +14,127 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.1.0] — 2026-05-07
+
+**First stable release.** The wire format (`SEALED-ENV-V1`) is frozen
+and will remain readable forever. The public API is stable. Bug-fix
+and non-breaking feature releases land as `0.1.x`; breaking changes
+wait for `0.2.0`.
+
+What 0.1.0 represents:
+
+- A wire-format-compatible **cross-stack** library: Node (npm) and
+  Java (Maven Central) read and write the same `.env.sealed` files,
+  validated by cryptographic test vectors in CI.
+- A complete operator toolchain in the Node CLI: `init`, `encrypt`,
+  `decrypt`, `get` / `set` / `edit` / `diff`, `exec`, `deploy`,
+  `keychain`. The Java side ships as library + Spring Boot starter;
+  a Java-native CLI is on the 0.2.0 roadmap.
+- Three modes — **basic**, **team**, **enterprise** — with
+  progressive defense: basic gives encryption-at-rest, team adds
+  HMAC integrity for shared repos, enterprise adds TOTP-bound
+  per-deploy authorization.
+- Two decrypt strategies — **Model A (host-side)** via
+  `deploy --remote` and **Model B (in-process)** via the Spring
+  starter / Node loader — explicitly documented with the trade-off.
+- 17 platform CI/CD recipes (GitHub Actions, GitLab, Bitbucket,
+  CircleCI, Jenkins, Azure, AWS, GCP, Vercel, Netlify, Fly.io,
+  Render, Railway, Heroku, Docker, Kubernetes, generic SSH) plus an
+  OIDC-federation pattern for shops that want zero persistent
+  master-key storage in CI.
+- A public threat model (T1-T13) and a track record of CVE response
+  (alpha.6 closed a JWS-payload TOTP-secret leak in under four hours
+  with cross-stack vectors and a migration playbook).
+
+### Added
+
+- **`sealed-env deploy --remote <user@host>`** (Node CLI) — Model A
+  host-side decrypt deploy. Decryption happens on the operator's
+  machine; only the resulting plaintext env vars cross the network
+  through an SSH tunnel. The remote server never holds the master
+  key, the signing key, or the sealed file. Significantly raises the
+  defense ceiling at rest on the production server (see
+  [docs/10-decrypt-strategies.md](./docs/10-decrypt-strategies.md)).
+
+  Implementation notes:
+  - Plaintext env vars travel via stdin to a remote `/bin/sh` — never
+    in argv, never visible in remote `ps aux`.
+  - Pre-flight SSH validation runs **before** decryption, so a
+    misconfigured target fails fast without ever holding plaintext
+    in memory.
+  - Bash-safe single-quote escaping on every value (including
+    embedded quotes, `$`, backticks, newlines, unicode).
+  - Deterministic, sorted output of the remote shell script — useful
+    for reproducible deploys and future cross-stack vector tests.
+  - Reuses the existing TOTP-bound `unseal_token` mint flow when the
+    sealed file is in enterprise mode.
+  - New flags: `--remote <user@host>`, `--ssh-port`, `--ssh-key`.
+  - Existing local-deploy behaviour is unchanged when `--remote` is
+    not passed.
+
+- **New utility modules `node/src/cli/utils/ssh.ts` and
+  `node/src/cli/utils/health-check.ts`** — small, focused helpers
+  that keep `deploy.ts` readable. The `ssh` module shells out to the
+  system `ssh` binary instead of bringing in a library, honoring the
+  zero-deps promise of the core.
+
+- **18 new unit tests** covering SSH target parsing, shell escaping
+  edge cases (single quotes, `$`, backticks, newlines, unicode,
+  injection attempts), remote-script generation determinism, and
+  health-check polling behaviour (timeout, network errors, retries).
+
+### Documentation
+
+- **New `docs/10-decrypt-strategies.md`** — explicit treatment of the
+  Model A (host-side decrypt) vs Model B (in-process decrypt)
+  trade-off, including:
+  - Side-by-side attacker-yield comparison for each model.
+  - How enterprise mode mitigates Model B by tightening the window
+    in which a stolen key is useful.
+  - Decision tree mapping a deployment scenario to a recommended
+    strategy.
+  - **Forward spec for `sealed-env deploy --remote`** — the CLI flag
+    that promotes Model A from "concept buried in docs" to a
+    first-class command. Includes flag surface, behaviour, artefact
+    placement, and the failure modes the wrapper handles vs the
+    operator's residual responsibilities.
+- **`docs/08-cicd-recipes.md` and `docs/09-lifecycle.md` updated**
+  to cross-reference doc 10 wherever they previously presented the
+  Spring Boot starter / Node loader as the default. The text now
+  acknowledges that the convenient path is Model B and links to the
+  trade-off discussion so readers make an informed choice.
+
+- **New `docs/09-lifecycle.md`** — end-to-end narrative covering the
+  three phases of a sealed-env project: **init** (greenfield setup
+  with key generation, gitignore management, and the QR enrollment for
+  enterprise mode), **onboarding** (how a new teammate clones the repo
+  and receives the master key out-of-band, with the optional keychain
+  flow), and **deploy** (basic vs enterprise modes, the `sealed-env
+  deploy` wrapper, and where each platform recipe plugs in). Cross-links
+  every existing doc so new readers have a single map to the surface
+  area instead of having to assemble it from quickstarts and reference
+  pages.
+
+- **Expanded `docs/08-cicd-recipes.md`** — five new platform recipes
+  added, all following the same pattern (master key in native secret
+  store + decrypt at runtime + cleanup):
+  - **Bitbucket Pipelines** with secured variables and Deployments
+    scope, plus enterprise unseal-token minting.
+  - **CircleCI** with shared Contexts and `BASH_ENV` token persistence
+    for enterprise mode.
+  - **Jenkins** with both declarative and scripted pipeline syntax,
+    a tip about Vault-backed credentials for shared controllers, and
+    enterprise mode via `withCredentials` blocks.
+  - **Azure** — four sub-sections: Container Apps (Key Vault refs),
+    App Service (`@Microsoft.KeyVault(...)` settings), Functions
+    (managed-identity SDK fetch at cold start), and Azure Pipelines
+    (variable groups + `##vso[task.setvariable]`).
+  - **Railway** with CLI / `railway.toml` configuration and
+    per-service variable scoping guidance.
+  - Top-level READMEs updated to list all 17 supported platforms.
+
+---
+
 ## [0.1.0-alpha.8] — 2026-05-07
 
 UX hot-fix on top of alpha.7. **No wire-format changes.**
