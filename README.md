@@ -11,6 +11,8 @@ with optional TOTP-based unsealing for production deploys.
 
 [![npm version](https://img.shields.io/npm/v/sealed-env?style=flat-square&color=1a1612&labelColor=c4471f&logo=npm&logoColor=f4ede0)](https://www.npmjs.com/package/sealed-env)
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.davidalmeidac/sealed-env-core?style=flat-square&color=1a1612&labelColor=c4471f&logo=apachemaven&logoColor=f4ede0)](https://central.sonatype.com/artifact/io.github.davidalmeidac/sealed-env)
+[![Node CI](https://img.shields.io/github/actions/workflow/status/davidalmeidac/sealed-env/node-ci.yml?branch=main&style=flat-square&color=1a1612&labelColor=c4471f&label=node%20ci)](https://github.com/davidalmeidac/sealed-env/actions/workflows/node-ci.yml)
+[![Java CI](https://img.shields.io/github/actions/workflow/status/davidalmeidac/sealed-env/java-ci.yml?branch=main&style=flat-square&color=1a1612&labelColor=c4471f&label=java%20ci)](https://github.com/davidalmeidac/sealed-env/actions/workflows/java-ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-1a1612?style=flat-square&labelColor=c4471f)](LICENSE)
 [![Threat model](https://img.shields.io/badge/threat--model-public-1a1612?style=flat-square&labelColor=c4471f)](THREAT_MODEL.md)
 
@@ -52,7 +54,7 @@ pipeline is fully compromised, attackers cannot decrypt without the operator's p
    │  ────────────           │         │  ────────────           │
    │  • CLI: sealed-env seal │         │  • SealedEnv core lib   │
    │  • npm: sealed-env      │         │  • Spring Boot starter  │
-   │  • writes KDF=scrypt    │         │  • writes KDF=argon2id  │
+   │  • writes KDF=argon2id  │         │  • writes KDF=argon2id  │
    └────────────┬────────────┘         └────────────┬────────────┘
                 │                                   │
                 │  both speak SEALED-ENV-V1         │
@@ -62,7 +64,7 @@ pipeline is fully compromised, attackers cannot decrypt without the operator's p
             │            .env.sealed                 │
             │  ───────────────────────────           │
             │  SEALED-ENV-V1 MODE=team               │
-            │  KDF=<scrypt|argon2id>                 │
+            │  KDF=argon2id                          │
             │  KDF-PARAMS=...   SALT=...             │
             │  NONCE=...        AAD-DIGEST=...       │
             │  HMAC=...         CREATED=2026-...     │
@@ -167,12 +169,11 @@ private String stripeKey;
 | AES-256-GCM cipher | ✓ | ✓ | ✓ |
 | Argon2id key derivation | ✓ | ✓ | ✓ |
 | HMAC integrity tag | — | ✓ | ✓ |
-| Audit log of secret access | — | ✓ | ✓ |
 | TOTP unseal required | — | — | ✓ |
 | Deploy-bound unseal tokens | — | — | ✓ |
 | Replay protection | — | — | ✓ |
-| Heap dump filter (Java) | — | ✓ | ✓ |
 | Memory wipe after read | ✓ | ✓ | ✓ |
+| Host-side decrypt (`deploy --remote`) | ✓ | ✓ | ✓ |
 | Suitable for | personal projects | staging, small teams | production, fintech, PII |
 
 Pick the one that fits your threat model. Upgrade later with one command:
