@@ -1,0 +1,16 @@
+# sealed-env starter config. All defaults are sane — this block could
+# be omitted entirely and the starter would still find .env.sealed in
+# the working directory.
+sealed-env:
+  path: .env.sealed
+  # In a real production deploy, set fail-fast: true so a missing
+  # SEALED_ENV_KEY crashes the app at startup instead of letting it
+  # boot with empty properties.
+  fail-fast: false
+
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: sealed-env-example

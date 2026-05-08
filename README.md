@@ -256,6 +256,16 @@ one that matches yours.
 
 If your team needs the Doppler/Vault feature set, use them. `sealed-env` is the right pick when you want a static, file-based, version-controllable encrypted secret with a higher security floor than `dotenvx`.
 
+## Runnable examples
+
+Pre-sealed apps you can clone and run in 60 seconds:
+
+- 📦 [examples/node-express](examples/node-express) — Node + Express server using `import 'sealed-env/config'`
+- ☕ [examples/spring-boot](examples/spring-boot) — Java + Spring Boot 3 with the auto-config starter
+
+The demo master key is checked in alongside each example so the apps
+work out of the box. **It's public — never use it in real projects.**
+
 ## Documentation
 
 - 📖 [Overview](docs/01-overview.md) — what `sealed-env` is and isn't

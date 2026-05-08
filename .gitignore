@@ -4,6 +4,8 @@ node/*.tsbuildinfo
 java/**/target/
 java/target/
 java/**/dependency-reduced-pom.xml
+examples/**/target/
+examples/**/node_modules/
 
 # Dependencies
 node_modules/
