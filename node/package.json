@@ -68,7 +68,7 @@
     "test:build": "npm run build && npm run test",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build && npm run test"
+    "prepublishOnly": "npm run clean && npm run test && npm run clean && npm run build"
   },
   "repository": {
     "type": "git",

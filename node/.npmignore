@@ -1,0 +1,24 @@
+# Exclude test artifacts from the published package.
+# The `prepublishOnly` script runs `test:compile` (which compiles
+# tests into dist/tests) before packing — this filter keeps the
+# published tarball clean.
+
+dist/tests/
+dist/**/*.test.js
+dist/**/*.test.d.ts
+dist/**/*.test.js.map
+dist/**/*.test.d.ts.map
+
+# Source maps and declaration maps are kept; only test artifacts excluded.
+
+# Project-internal scripts not useful to consumers
+scripts/
+tests/
+tsconfig.test.json
+
+# Editor / OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
