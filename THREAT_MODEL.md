@@ -62,7 +62,7 @@
 - A single misconfig (Actuator exposed) defeats encryption-at-rest
 - Plaintext secrets must not survive boot
 
-### 6. Token-payload exposure (lesson from sealed-env's own CVE-2026-XXXXX)
+### 6. Token-payload exposure (lesson from sealed-env's own CVE-2026-45091)
 
 **What happened (to us, May 2026):**
 
@@ -76,7 +76,8 @@ the leaked secret allowed minting **future** unseal tokens indefinitely.
 The reviewer found it in 5 minutes by base32-encoding the bytes from
 `payload.totp_secret` and comparing to the operator's `.env.local` value.
 
-Affected versions are deprecated and a CVE was requested. See
+Affected versions are deprecated. Tracked as
+**[CVE-2026-45091](https://nvd.nist.gov/vuln/detail/CVE-2026-45091)** /
 [GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv).
 
 **What it teaches us (and what we now do):**

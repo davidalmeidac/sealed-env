@@ -12,6 +12,17 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ## [Unreleased]
 
+### Security
+
+- **CVE-2026-45091 has been formally assigned** to the JWS-payload
+  TOTP-secret leak that affected `0.1.0-alpha.{1,2,3}` and was patched
+  in alpha.4 on 2026-05-07. The MITRE entry is now public at
+  [nvd.nist.gov/vuln/detail/CVE-2026-45091](https://nvd.nist.gov/vuln/detail/CVE-2026-45091).
+  No code change in this entry — references throughout the repository
+  (README, THREAT_MODEL, Java regression tests, CHANGELOG) updated to
+  cite the official identifier alongside the existing GitHub Security
+  Advisory ([GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)).
+
 ---
 
 ## [0.1.0] — 2026-05-07
@@ -42,9 +53,10 @@ What 0.1.0 represents:
   Render, Railway, Heroku, Docker, Kubernetes, generic SSH) plus an
   OIDC-federation pattern for shops that want zero persistent
   master-key storage in CI.
-- A public threat model (T1-T13) and a track record of CVE response
-  (alpha.6 closed a JWS-payload TOTP-secret leak in under four hours
-  with cross-stack vectors and a migration playbook).
+- A public threat model (T1-T13) and a track record of CVE response.
+  alpha.6 closed [CVE-2026-45091](https://nvd.nist.gov/vuln/detail/CVE-2026-45091)
+  (JWS-payload TOTP-secret leak) in under four hours with cross-stack
+  vectors and a migration playbook.
 
 ### Added
 
@@ -383,12 +395,14 @@ and vice versa.
 
 ## [0.1.0-alpha.4] — 2026-05-07
 
-> **🚨 SECURITY: this release fixes a critical issue in `enterprise` mode.
-> Prior versions (alpha.1, alpha.2, alpha.3) embedded the operator's TOTP
-> secret in the JWS payload of every unseal token. JWS payload is base64-
-> encoded JSON, NOT encrypted — anyone observing a token (CI logs, container
-> env dumps, stack traces) could extract the secret and use it (with the
-> master key) to mint unseal tokens for FUTURE deploys indefinitely.**
+> **🚨 SECURITY: [CVE-2026-45091](https://nvd.nist.gov/vuln/detail/CVE-2026-45091)
+> ([GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)).
+> This release fixes a critical issue in `enterprise` mode. Prior versions
+> (alpha.1, alpha.2, alpha.3) embedded the operator's TOTP secret in the JWS
+> payload of every unseal token. JWS payload is base64-encoded JSON, NOT
+> encrypted — anyone observing a token (CI logs, container env dumps, stack
+> traces) could extract the secret and use it (with the master key) to mint
+> unseal tokens for FUTURE deploys indefinitely.**
 >
 > **All `0.1.0-alpha.{1,2,3}` releases are deprecated on npm and Maven
 > Central. If you adopted enterprise mode in any of those versions:**

@@ -15,6 +15,7 @@ with optional TOTP-based unsealing for production deploys.
 [![Java CI](https://img.shields.io/github/actions/workflow/status/davidalmeidac/sealed-env/java-ci.yml?branch=main&style=flat-square&color=1a1612&labelColor=c4471f&label=java%20ci)](https://github.com/davidalmeidac/sealed-env/actions/workflows/java-ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-1a1612?style=flat-square&labelColor=c4471f)](LICENSE)
 [![Threat model](https://img.shields.io/badge/threat--model-public-1a1612?style=flat-square&labelColor=c4471f)](THREAT_MODEL.md)
+[![CVE response](https://img.shields.io/badge/CVE--2026--45091-resolved%20%E2%9C%93-1a1612?style=flat-square&labelColor=c4471f)](https://nvd.nist.gov/vuln/detail/CVE-2026-45091)
 
 [Docs](docs/) · [Threat Model](THREAT_MODEL.md) · [File Format](SPEC.md) · [Security Policy](SECURITY.md) · [Landing](https://davidalmeidac.github.io/sealed-env/)
 
@@ -54,7 +55,7 @@ pipeline is fully compromised, attackers cannot decrypt without the operator's p
    │  ────────────           │         │  ────────────           │
    │  • CLI: sealed-env seal │         │  • SealedEnv core lib   │
    │  • npm: sealed-env      │         │  • Spring Boot starter  │
-   │  • writes KDF=argon2id  │         │  • writes KDF=argon2id  │
+   │  • writes KDF=scrypt    │         │  • writes KDF=argon2id  │
    └────────────┬────────────┘         └────────────┬────────────┘
                 │                                   │
                 │  both speak SEALED-ENV-V1         │
@@ -64,7 +65,7 @@ pipeline is fully compromised, attackers cannot decrypt without the operator's p
             │            .env.sealed                 │
             │  ───────────────────────────           │
             │  SEALED-ENV-V1 MODE=team               │
-            │  KDF=argon2id                          │
+            │  KDF=<scrypt|argon2id>                 │
             │  KDF-PARAMS=...   SALT=...             │
             │  NONCE=...        AAD-DIGEST=...       │
             │  HMAC=...         CREATED=2026-...     │

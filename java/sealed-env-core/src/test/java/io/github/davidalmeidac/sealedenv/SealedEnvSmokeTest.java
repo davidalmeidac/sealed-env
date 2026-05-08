@@ -154,9 +154,10 @@ class SealedEnvSmokeTest {
             String serialized = SealedEnv.seal(opts).serialized();
             assertThat(serialized).contains("\nEPOCH-COMMIT=");
             assertThat(serialized).contains("\nCHALLENGE-BIND=enabled\n");
-            // Hardening regression: the serialized file must NEVER carry
-            // the literal TOTP secret. Pre-alpha.4 files exposed it via
-            // `totp_secret` in the JWS payload of unseal tokens.
+            // Hardening regression for CVE-2026-45091: the serialized
+            // file must NEVER carry the literal TOTP secret. Pre-alpha.4
+            // files exposed it via `totp_secret` in the JWS payload of
+            // unseal tokens.
             assertThat(serialized).doesNotContain("TOTP-VERIFIER=");
 
             SealedFile file = SealedFileParser.parse(serialized);
