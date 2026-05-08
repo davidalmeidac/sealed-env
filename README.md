@@ -266,6 +266,14 @@ Pre-sealed apps you can clone and run in 60 seconds:
 The demo master key is checked in alongside each example so the apps
 work out of the box. **It's public — never use it in real projects.**
 
+## Companion: sealed-env Studio (pre-alpha)
+
+A desktop GUI on top of sealed-env, for the people who don't live
+in the terminal. Currently in design phase — looking for
+collaborators.
+
+[**→ github.com/davidalmeidac/sealed-env-studio**](https://github.com/davidalmeidac/sealed-env-studio)
+
 ## Documentation
 
 - 📖 [Overview](docs/01-overview.md) — what `sealed-env` is and isn't
@@ -301,10 +309,14 @@ for `0.2.0`.
 
 **Roadmap:**
 
-- [ ] v0.1.x — `sealed-env doctor` + `install-hooks` (non-breaking)
+- [ ] v0.1.x — `sealed-env doctor` + `install-hooks` + library-side `.env.local` autoload (non-breaking)
 - [ ] v0.2.0 — Java CLI (Maven-distributed) · Shamir Secret Sharing · sidecar pattern
 - [ ] v0.3.0 — `memfd_secret` Linux memory protection · heap-dump filter
 - [ ] v1.0 — Hardware-backed wrapping (TPM / Secure Enclave / YubiKey)
+
+**Companion projects:**
+
+- [sealed-env-studio](https://github.com/davidalmeidac/sealed-env-studio) — desktop GUI, pre-alpha, design phase
 
 ## Contributing
 
