@@ -28,7 +28,7 @@ import { SealedEnvError } from '../../core/errors.js';
 import { verifyTotp } from '../../totp/totp.js';
 import { buildUnsealToken } from '../../totp/unsealToken.js';
 import { parseSealedFile } from '../../format/parser.js';
-import { shellHintFor } from '../utils/io.js';
+import { readKeyFromEnv, readEnvKeyBase32 } from '../utils/io.js';
 import { parseFlags } from '../utils/flags.js';
 import { DEFAULT_SCRYPT_PARAMS } from '../../format/constants.js';
 import type { KdfParams } from '../../core/types.js';
@@ -44,7 +44,7 @@ export async function unsealCommand(argv: string[]): Promise<void> {
   });
   const tokenOnly = values['token-only'] as boolean;
 
-  const masterKey = readEnvKey('SEALED_ENV_KEY');
+  const masterKey = readKeyFromEnv('SEALED_ENV_KEY');
   const totpSecret = readEnvKeyBase32('SEALED_ENV_TOTP_SECRET');
 
   let code = (values.totp as string).trim();
@@ -133,47 +133,3 @@ export async function unsealCommand(argv: string[]): Promise<void> {
   );
 }
 
-function readEnvKey(varName: string): Buffer {
-  const v = process.env[varName];
-  if (!v) {
-    throw new SealedEnvError(
-      'MISSING_KEY',
-      `environment variable ${varName} is required.\n${shellHintFor(varName)}`,
-    );
-  }
-  if (/^[0-9a-fA-F]+$/.test(v) && v.length % 2 === 0) return Buffer.from(v, 'hex');
-  if (/^[A-Za-z0-9+/]+={0,2}$/.test(v)) return Buffer.from(v, 'base64');
-  throw new SealedEnvError('CONFIG_ERROR', `${varName} must be hex or base64`);
-}
-
-function readEnvKeyBase32(varName: string): Buffer {
-  const v = process.env[varName];
-  if (!v) {
-    throw new SealedEnvError(
-      'MISSING_KEY',
-      `environment variable ${varName} is required.\n${shellHintFor(varName)}`,
-    );
-  }
-  return decodeBase32(v);
-}
-
-function decodeBase32(s: string): Buffer {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  const cleaned = s.toUpperCase().replace(/=+$/, '').replace(/\s/g, '');
-  let bits = 0;
-  let value = 0;
-  const bytes: number[] = [];
-  for (const c of cleaned) {
-    const idx = alphabet.indexOf(c);
-    if (idx < 0) {
-      throw new SealedEnvError('CONFIG_ERROR', 'invalid base32 in TOTP secret');
-    }
-    value = (value << 5) | idx;
-    bits += 5;
-    if (bits >= 8) {
-      bytes.push((value >>> (bits - 8)) & 0xff);
-      bits -= 8;
-    }
-  }
-  return Buffer.from(bytes);
-}

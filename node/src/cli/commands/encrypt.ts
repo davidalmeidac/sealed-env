@@ -10,6 +10,7 @@ import { SealedEnvError } from '../../core/errors.js';
 import type { Mode } from '../../core/types.js';
 import { shellHintFor } from '../utils/io.js';
 import { parseFlags } from '../utils/flags.js';
+import { decodeBase32 } from '../utils/base32.js';
 
 export function encryptCommand(argv: string[]): void {
   const { values, positional } = parseFlags(argv, {
@@ -70,7 +71,7 @@ function readEnvKey(varName: string, base32 = false): Buffer {
     );
   }
   if (base32) {
-    return decodeBase32(v);
+    return decodeBase32(v, varName);
   }
   // Try hex first, then base64
   if (/^[0-9a-fA-F]+$/.test(v) && v.length % 2 === 0) {
@@ -82,23 +83,3 @@ function readEnvKey(varName: string, base32 = false): Buffer {
   throw new SealedEnvError('CONFIG_ERROR', `${varName} must be hex or base64`);
 }
 
-function decodeBase32(s: string): Buffer {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  const cleaned = s.toUpperCase().replace(/=+$/, '').replace(/\s/g, '');
-  let bits = 0;
-  let value = 0;
-  const bytes: number[] = [];
-  for (const c of cleaned) {
-    const idx = alphabet.indexOf(c);
-    if (idx < 0) {
-      throw new SealedEnvError('CONFIG_ERROR', 'invalid base32 in TOTP secret');
-    }
-    value = (value << 5) | idx;
-    bits += 5;
-    if (bits >= 8) {
-      bytes.push((value >>> (bits - 8)) & 0xff);
-      bits -= 8;
-    }
-  }
-  return Buffer.from(bytes);
-}
