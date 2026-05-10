@@ -10,6 +10,53 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.1.1] — 2026-05-10
+
+### Security
+
+- **SEC-002 — scrypt cost-floor enforced.** `DEFAULT_SCRYPT_PARAMS.N` raised
+  from `32768` to `131072` (OWASP 2024 login-authentication floor for scrypt).
+  New seals write `KDF-PARAMS=N=131072,r=8,p=1`. Files written by 0.1.0 with
+  `N=32768` continue to decrypt correctly — the parser reads stored params from
+  the file header without override. Java side is Argon2id-only for writes and
+  already above the cost floor; no Java source change required.
+
+- **SEC-003 — sealed-file writes are now mode 0600 on POSIX.** The CLI
+  commands `encrypt`, `set`, `edit`, and `rotate` all use a shared
+  `writeSealedFile` helper. On POSIX, written files and `.bak` backups are
+  created with mode `0o600` (was `0o644` in 0.1.0). Windows mode semantics
+  are unchanged (NTFS ACLs, not POSIX bits).
+
+- **SEC-005 — `unseal` now requires an explicit salt source.** Running
+  `sealed-env unseal` without `--file` or `--salt` now exits with
+  `CONFIG_ERROR` instead of silently using a zero-salt sentinel. To opt
+  into the legacy zero-salt path (not for production), pass
+  `--unsafe-zero-salt`. All existing demos and CI recipes already pass
+  `--file`; no user-visible breakage expected.
+
+- **SEC-007 — token epoch field strictly validated before base64 decode.**
+  `verifyUnsealToken` now validates that `payload.epoch` matches
+  `/^[A-Za-z0-9+/]+={0,2}$/` before calling `Buffer.from`. Characters
+  outside the standard base64 alphabet (e.g. whitespace injected by
+  a proxy) cause an immediate `TOKEN_INVALID`. Java's `Base64.getDecoder()`
+  was already strict; this aligns Node behavior. A cross-stack test vector
+  (`test-vectors/v1/enterprise-token-malformed-epoch.json`) documents the
+  expected rejection across all stacks.
+
+- **SEC-021 — all GitHub Actions `uses:` lines pinned to 40-char commit
+  SHAs.** A lint script (`node/scripts/lint-workflows.mjs`) enforces pinning
+  in CI. Dependabot is configured to open grouped weekly PRs to update
+  pinned SHAs. *(Shipped in PR-A1, merged before this release.)*
+
+### Internal
+
+- Sealed-file writes (`encrypt`/`set`/`edit`/`rotate`) are now atomic via
+  temp-write + fsync + rename (SEC-019). A crash mid-write no longer corrupts
+  the destination file; the previous content is preserved until the rename
+  completes.
+
+---
+
 ## [Unreleased]
 
 ### Security
