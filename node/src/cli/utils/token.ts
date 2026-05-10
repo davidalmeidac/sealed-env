@@ -21,6 +21,7 @@ import { verifyTotp } from '../../totp/totp.js';
 import { buildUnsealToken } from '../../totp/unsealToken.js';
 import type { SealedFile } from '../../core/types.js';
 import { readKeyFromEnv, shellHintFor } from './io.js';
+import { decodeBase32 } from './base32.js';
 
 /** Decode a base32-encoded TOTP secret from an env var. */
 function readTotpSecret(): Buffer {
@@ -31,31 +32,7 @@ function readTotpSecret(): Buffer {
       `environment variable SEALED_ENV_TOTP_SECRET is required for enterprise mode.\n${shellHintFor('SEALED_ENV_TOTP_SECRET')}`,
     );
   }
-  return decodeBase32(v);
-}
-
-function decodeBase32(s: string): Buffer {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  const cleaned = s.toUpperCase().replace(/=+$/, '').replace(/\s/g, '');
-  let bits = 0;
-  let value = 0;
-  const bytes: number[] = [];
-  for (const ch of cleaned) {
-    const i = alphabet.indexOf(ch);
-    if (i < 0) {
-      throw new SealedEnvError(
-        'CONFIG_ERROR',
-        `SEALED_ENV_TOTP_SECRET contains invalid base32 char "${ch}"`,
-      );
-    }
-    value = (value << 5) | i;
-    bits += 5;
-    if (bits >= 8) {
-      bytes.push((value >>> (bits - 8)) & 0xff);
-      bits -= 8;
-    }
-  }
-  return Buffer.from(bytes);
+  return decodeBase32(v, 'SEALED_ENV_TOTP_SECRET');
 }
 
 /**

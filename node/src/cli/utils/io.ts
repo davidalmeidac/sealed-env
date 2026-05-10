@@ -12,6 +12,7 @@ import { seal, unseal } from '../../core/api.js';
 import { SealedEnvError } from '../../core/errors.js';
 import type { Mode, SealedFile } from '../../core/types.js';
 import { parseSealedFile } from '../../format/parser.js';
+import { decodeBase32 } from './base32.js';
 
 /** Decode an env var that holds key material (hex or base64). */
 export function readKeyFromEnv(varName: string): Buffer {
@@ -25,6 +26,23 @@ export function readKeyFromEnv(varName: string): Buffer {
   if (/^[0-9a-fA-F]+$/.test(v) && v.length % 2 === 0) return Buffer.from(v, 'hex');
   if (/^[A-Za-z0-9+/]+={0,2}$/.test(v)) return Buffer.from(v, 'base64');
   throw new SealedEnvError('CONFIG_ERROR', `${varName} must be hex or base64`);
+}
+
+/**
+ * Decode an env var that holds a base32-encoded key (e.g. TOTP secret).
+ *
+ * Throws `MISSING_KEY` (with a shell hint) if the var is absent.
+ * Throws `CONFIG_ERROR` if the value is not valid base32.
+ */
+export function readEnvKeyBase32(varName: string): Buffer {
+  const v = process.env[varName];
+  if (!v) {
+    throw new SealedEnvError(
+      'MISSING_KEY',
+      `environment variable ${varName} is required.\n${shellHintFor(varName)}`,
+    );
+  }
+  return decodeBase32(v, varName);
 }
 
 /**
@@ -114,7 +132,7 @@ export function resealLikeSource(
     opts.signingKey = readKeyFromEnv('SEALED_ENV_SIGNING_KEY');
   }
   if (source.mode === 'enterprise') {
-    opts.totpSecret = readKeyFromEnv('SEALED_ENV_TOTP_SECRET');
+    opts.totpSecret = readEnvKeyBase32('SEALED_ENV_TOTP_SECRET');
     opts.challengeBind = source.challengeBind === 'enabled';
   }
   const { serialized } = seal(opts);
