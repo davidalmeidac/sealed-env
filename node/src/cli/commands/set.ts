@@ -11,7 +11,7 @@
  * overwriting.
  */
 
-import { copyFileSync, existsSync, writeFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { SealedEnvError } from '../../core/errors.js';
@@ -20,6 +20,7 @@ import {
   parseDotenv,
   resealLikeSource,
   serializeDotenv,
+  writeSealedFile,
 } from '../utils/io.js';
 
 export function setCommand(argv: string[]): void {
@@ -50,10 +51,8 @@ export function setCommand(argv: string[]): void {
   const newPlaintext = serializeDotenv(pairs, rawLines);
   const newSealed = resealLikeSource(source, newPlaintext);
 
-  // Back up the previous sealed file before overwriting.
   const absolute = resolve(input);
-  copyFileSync(absolute, absolute + '.bak');
-  writeFileSync(absolute, newSealed, { encoding: 'utf8', mode: 0o644 });
+  writeSealedFile(absolute, newSealed, { preserveBackup: { backupPath: absolute + '.bak' } });
 
   process.stdout.write(
     [

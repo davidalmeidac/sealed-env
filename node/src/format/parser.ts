@@ -232,7 +232,7 @@ function parseKdfParams(kdf: KdfAlgorithm, s: string): KdfParams {
   return { kind: 'scrypt', params };
 }
 
-function decodeBase64Strict(s: string, fieldName: string): Buffer {
+export function decodeBase64Strict(s: string, fieldName: string): Buffer {
   // Reject whitespace, padding errors, and non-base64 chars
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(s)) {
     throw new SealedEnvError(

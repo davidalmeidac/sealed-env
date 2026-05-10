@@ -2,13 +2,13 @@
  * `sealed-env encrypt <input.env>` — produce a .env.sealed file.
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { seal } from '../../core/api.js';
 import { SealedEnvError } from '../../core/errors.js';
 import type { Mode } from '../../core/types.js';
-import { shellHintFor } from '../utils/io.js';
+import { shellHintFor, writeSealedFile } from '../utils/io.js';
 import { parseFlags } from '../utils/flags.js';
 import { decodeBase32 } from '../utils/base32.js';
 
@@ -54,7 +54,7 @@ export function encryptCommand(argv: string[]): void {
   const finalOut = values.out
     ? resolve(values.out as string)
     : resolve(`${input}.sealed`);
-  writeFileSync(finalOut, serialized, { encoding: 'utf8', mode: 0o644 });
+  writeSealedFile(finalOut, serialized);
 
   process.stdout.write(`✓ Encrypted ${input} → ${finalOut} (mode: ${mode})\n`);
   process.stdout.write(

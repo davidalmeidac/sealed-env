@@ -64,8 +64,8 @@ public sealed interface KdfParams permits KdfParams.Argon2id, KdfParams.Scrypt {
         return new Argon2id(3, 65536, 4);
     }
 
-    /** Default params for cross-stack files written by the Node writer. */
+    /** Default params for cross-stack files written by the Node writer (bumped to N=131072 in 0.1.1, SEC-002). */
     static Scrypt defaultScrypt() {
-        return new Scrypt(32768, 8, 1);
+        return new Scrypt(131072, 8, 1);
     }
 }

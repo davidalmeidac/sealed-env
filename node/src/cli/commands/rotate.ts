@@ -23,11 +23,11 @@
  * Backs up to <file>.bak before overwriting, same as set/edit.
  */
 
-import { copyFileSync, existsSync, writeFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { SealedEnvError } from '../../core/errors.js';
-import { decryptSealedFile, resealLikeSource } from '../utils/io.js';
+import { decryptSealedFile, resealLikeSource, writeSealedFile } from '../utils/io.js';
 
 export function rotateCommand(argv: string[]): void {
   const input = argv[0];
@@ -53,8 +53,7 @@ export function rotateCommand(argv: string[]): void {
   plaintext.fill(0);
 
   const absolute = resolve(input);
-  copyFileSync(absolute, absolute + '.bak');
-  writeFileSync(absolute, newSealed, { encoding: 'utf8', mode: 0o644 });
+  writeSealedFile(absolute, newSealed, { preserveBackup: { backupPath: absolute + '.bak' } });
 
   process.stdout.write(
     [

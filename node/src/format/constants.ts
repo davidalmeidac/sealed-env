@@ -32,12 +32,18 @@ export const DEFAULT_KDF = 'scrypt' as const;
 
 /**
  * Default scrypt parameters. Calibrated to:
- *   - hit RFC 7914 "login authentication" recommended cost
- *   - stay under 64 MB so tiny CI runners survive
- *   - finish in <500ms on a modern desktop
+ *   - N=131072 (2^17): OWASP 2024 floor for login authentication (was 32768 / 2^15 in 0.1.0)
+ *   - r=8, p=1: RFC 7914 recommended block / parallelism factors
+ *   - memory: 128 * N * r = 128 MB on a modern desktop (stay within 256 MB CI budget)
+ *
+ * Files sealed with the old N=32768 (0.1.0) still decrypt correctly — the parser
+ * reads KDF-PARAMS from the file header; this constant only governs NEW seals.
+ *
+ * grep audit: only this line and node/src/core/types.ts:93 JSDoc referenced 32768.
+ * No other hardcoded literal in a scrypt context. Bumping this constant suffices.
  */
 export const DEFAULT_SCRYPT_PARAMS = Object.freeze({
-  N: 32768,
+  N: 131072,
   r: 8,
   p: 1,
 });

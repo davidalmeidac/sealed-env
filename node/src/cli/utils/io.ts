@@ -4,7 +4,10 @@
  * that the four crypto-handling code paths stay identical.
  */
 
-import { readFileSync, existsSync } from 'node:fs';
+import fs, {
+  existsSync,
+  readFileSync,
+} from 'node:fs';
 import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
 
@@ -268,6 +271,84 @@ export function parseDotenv(text: string): {
     pairs.set(key, trimmed.substring(eq + 1));
   }
   return { pairs, rawLines };
+}
+
+/**
+ * Atomically write a sealed-file payload to `path` with mode 0o600 on POSIX.
+ *
+ * Strategy:
+ *   1. Write to `<path>.tmp-<pid>` with mode 0o600.
+ *   2. fsync the temp fd before close (crash-durability — survives power loss).
+ *   3. If `options.preserveBackup` is supplied, copyFileSync(path → backupPath)
+ *      then chmodSync(backupPath, 0o600). Done BEFORE rename so the backup is
+ *      always the pre-write state.
+ *   4. renameSync(<path>.tmp, path) — atomic on POSIX, atomic-enough on NTFS
+ *      via Node's MoveFileEx semantics.
+ *   5. Defense-in-depth: chmodSync(path, mode) on non-Windows (some filesystems
+ *      drop mode bits across a rename).
+ *   6. On error in any step: unlinkSync the temp file (best effort) and rethrow.
+ *
+ * Windows note: `mode` is silently ignored by Node on Windows (NTFS uses ACLs).
+ * The temp+fsync+rename sequence still runs and still provides atomicity.
+ * SEC-003 explicitly ships as POSIX-only; Windows ACL hardening is tracked as a
+ * follow-up.
+ *
+ * SEC-003 + SEC-019: all sealed-file writes in the CLI MUST route through here.
+ */
+export function writeSealedFile(
+  path: string,
+  content: string | Buffer,
+  options?: {
+    /** Default 0o600. */
+    mode?: number;
+    /** If set, copy path → backupPath BEFORE rename so backup is pre-write state. */
+    preserveBackup?: { backupPath: string };
+  },
+): void {
+  const mode = options?.mode ?? 0o600;
+  const tmpPath = `${path}.tmp-${process.pid}`;
+  const buf = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
+
+  let fd: number | undefined;
+  try {
+    fd = fs.openSync(tmpPath, 'w', mode);
+    fs.writeSync(fd, buf, 0, buf.length, 0);
+    fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fd = undefined;
+  } catch (err) {
+    if (fd !== undefined) {
+      try { fs.closeSync(fd); } catch { /* ignore */ }
+    }
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+    throw err;
+  }
+
+  // Step 3: preserve backup BEFORE rename so backup is pre-write state.
+  if (options?.preserveBackup) {
+    try {
+      fs.copyFileSync(path, options.preserveBackup.backupPath);
+      if (process.platform !== 'win32') {
+        fs.chmodSync(options.preserveBackup.backupPath, 0o600);
+      }
+    } catch (err) {
+      try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+      throw err;
+    }
+  }
+
+  // Step 4: atomic rename.
+  try {
+    fs.renameSync(tmpPath, path);
+  } catch (err) {
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+    throw err;
+  }
+
+  // Step 5: defense-in-depth chmod (some filesystems drop mode bits across rename).
+  if (process.platform !== 'win32') {
+    try { fs.chmodSync(path, mode); } catch { /* best effort */ }
+  }
 }
 
 /**
