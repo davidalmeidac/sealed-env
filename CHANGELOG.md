@@ -10,6 +10,23 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [Unreleased]
+
+### Security
+
+- **SEC-006 (Node): Replay cache wired into `loadSealed`/`unseal` by default.**
+  Re-using a token within its TTL is now rejected with `TOKEN_INVALID` (cause: `replay`).
+  A shared module-level `InProcessReplayCache` (10k-entry LRU) is provided automatically —
+  no caller configuration required. Inject a custom `ReplayCache` implementation
+  (e.g. Redis-backed) via `LoadSealedOptions.replayCache` / `UnsealOptions.replayCache`
+  to share replay state across processes. Opt out via `replayCache: null` (emits a
+  one-time stderr warning containing `replay-cache-disabled`).
+  Java parallel implementation coming in PR-B1b.
+
+<!-- SEC-009 section added by PR-B2 -->
+
+---
+
 ## [0.1.1] — 2026-05-10
 
 ### Security
