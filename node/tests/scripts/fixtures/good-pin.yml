@@ -1,0 +1,10 @@
+name: Good Pin Fixture
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@1234567890abcdef1234567890abcdef12345678 # v4.1.7
+      - uses: actions/setup-node@1234567890abcdef1234567890abcdef12345678 # v4.0.0
