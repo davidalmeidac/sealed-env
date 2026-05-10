@@ -26,15 +26,45 @@ export type SealedEnvErrorCode =
   | 'CONFIG_ERROR';
 
 /**
+ * Optional sub-classification for TOKEN_INVALID errors.
+ *
+ * Callers that only check `e.code === 'TOKEN_INVALID'` keep working.
+ * Callers that need to distinguish replay from expiry etc. can inspect `e.cause`.
+ */
+export type TokenInvalidCause =
+  | 'replay'
+  | 'replay-cache-unavailable'
+  | 'signature'
+  | 'expired'
+  | 'malformed-epoch'
+  | 'header'
+  | 'wrong-prefix'
+  | 'malformed';
+
+/**
  * The single error class thrown by this library.
+ *
+ * Backward-compatible extension: an optional `cause` string is now accepted
+ * in the constructor for sub-classification of TOKEN_INVALID errors.
+ * Existing callers reading `e.code === 'TOKEN_INVALID'` are unaffected.
  */
 export class SealedEnvError extends Error {
   override readonly name = 'SealedEnvError';
   readonly code: SealedEnvErrorCode;
+  /**
+   * Optional sub-classification. Present on TOKEN_INVALID errors emitted by
+   * the replay cache path. Undefined for all other error codes and for
+   * TOKEN_INVALID errors that predate 0.2.0.
+   */
+  override readonly cause?: TokenInvalidCause | string;
 
-  constructor(code: SealedEnvErrorCode, message: string) {
+  constructor(code: SealedEnvErrorCode, message: string, opts?: { cause?: string }) {
     super(message);
     this.code = code;
+    if (opts?.cause !== undefined) {
+      // TypeScript knows Error.cause exists on ES2022+; assign directly.
+      (this as unknown as { cause: string }).cause = opts.cause;
+    }
     // Maintain proper stack trace where available (V8/Node)
     if (typeof Error.captureStackTrace === 'function') {
       Error.captureStackTrace(this, SealedEnvError);
