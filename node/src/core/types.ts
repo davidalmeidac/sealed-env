@@ -90,7 +90,7 @@ export interface SealOptions {
   signingKey?: Buffer;
   /** Whether enterprise tokens are bound to deploy challenges. Default: true for enterprise. */
   challengeBind?: boolean;
-  /** Override scrypt params. Defaults to {N: 32768, r: 8, p: 1}. */
+  /** Override scrypt params. Defaults to {N: 131072, r: 8, p: 1}. */
   scryptParams?: Partial<ScryptParams>;
 }
 

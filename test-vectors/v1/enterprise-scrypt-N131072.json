@@ -1,0 +1,7 @@
+{
+  "name": "enterprise-scrypt-N131072",
+  "purpose": "Node-sealed file with N=131072 (OWASP 2024 floor, SEC-002). Java must decrypt this successfully.",
+  "masterKeyHex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "plaintext": "SEC002_TEST=n131072\nDB_HOST=db.example.com\n",
+  "serialized": "SEALED-ENV-V1 MODE=basic\nKDF=scrypt\nKDF-PARAMS=N=131072,r=8,p=1\nSALT=ZgePkg02sVW6/nqcXF39EQ==\nNONCE=FxkQJ7fy9gG7A1UT\nAAD-DIGEST=B5OUpbIiU4tz9g7A9sZJhMfVdQhqRl+40ulEmY7i1fI=\nCREATED=2026-05-10T20:20:54.271Z\n\nWBrgeDm8RItoChRC+nT6kEAXiuiiHIkVfIHbmpXrzVxV3WPR3mA+wjeWlkgXarQNOD76ZVHrkK9qwCs="
+}
