@@ -106,9 +106,6 @@ export interface VerifyTokenInput {
   derivedKey: Buffer;
   expectedDeployId: string | null;
   challengeBindEnabled: boolean;
-  /** Verifier for replay protection (caller-provided, optional). */
-  isOpsIdSeen?: (opsId: string) => boolean;
-  markOpsIdSeen?: (opsId: string) => void;
 }
 
 export interface VerifyTokenResult {
@@ -118,6 +115,11 @@ export interface VerifyTokenResult {
    */
   enterpriseEpoch: Buffer;
   opsId: string;
+  /**
+   * Token expiry as an absolute epoch in seconds.
+   * Passed to markOpsIdSeen by the replay-cache layer in api.ts.
+   */
+  expEpochSec: number;
 }
 
 export function verifyUnsealToken(input: VerifyTokenInput): VerifyTokenResult {
@@ -182,11 +184,6 @@ export function verifyUnsealToken(input: VerifyTokenInput): VerifyTokenResult {
     }
   }
 
-  if (input.isOpsIdSeen?.(payload.ops_id)) {
-    throw new SealedEnvError('TOKEN_INVALID', 'unseal token already used (replay)');
-  }
-  input.markOpsIdSeen?.(payload.ops_id);
-
   let enterpriseEpoch: Buffer;
   try {
     // SEC-007: strict base64 validation before decode. decodeBase64Strict rejects
@@ -207,7 +204,7 @@ export function verifyUnsealToken(input: VerifyTokenInput): VerifyTokenResult {
     throw new SealedEnvError('TOKEN_INVALID', 'unseal token epoch wrong length');
   }
 
-  return { enterpriseEpoch, opsId: payload.ops_id };
+  return { enterpriseEpoch, opsId: payload.ops_id, expEpochSec: payload.exp };
 }
 
 function base64UrlEncode(input: string | Buffer): string {

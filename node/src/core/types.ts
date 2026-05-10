@@ -2,6 +2,8 @@
  * Core types for sealed-env.
  */
 
+import type { ReplayCache } from './replay-cache.js';
+
 /**
  * Security mode of a sealed file.
  *
@@ -108,6 +110,18 @@ export interface UnsealOptions {
   unsealToken?: string;
   /** Current deploy id. Required when challengeBind enabled. */
   deployId?: string;
+  /**
+   * Replay cache for ops_id tracking (SEC-006).
+   *
+   * Default: a shared module-level InProcessReplayCache (10k-entry LRU).
+   * Pass `null` to disable replay protection for this call site — a one-time
+   * structured warning containing "replay-cache-disabled" is emitted to stderr.
+   * Inject a custom implementation (e.g. Redis-backed) to share replay state
+   * across processes. See README §replay-cache for guidance.
+   *
+   * Only applies when file.mode === 'enterprise' (tokens exist only in that mode).
+   */
+  replayCache?: ReplayCache | null;
 }
 
 /**
@@ -125,4 +139,16 @@ export interface LoadSealedOptions {
     unsealToken?: string;
     deployId?: string;
   };
+  /**
+   * Replay cache for ops_id tracking (SEC-006).
+   *
+   * Default: a shared module-level InProcessReplayCache (10k-entry LRU).
+   * Pass `null` to disable replay protection — a one-time structured warning
+   * containing "replay-cache-disabled" is emitted to stderr.
+   * Inject a custom implementation to share replay state across processes.
+   * See README §replay-cache for guidance.
+   *
+   * Only applies when the sealed file uses enterprise mode.
+   */
+  replayCache?: ReplayCache | null;
 }
