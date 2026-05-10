@@ -16,14 +16,12 @@
 
 import {
   closeSync,
-  copyFileSync,
   existsSync,
   mkdtempSync,
   openSync,
   readFileSync,
   rmSync,
   statSync,
-  writeFileSync,
   writeSync,
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -31,7 +29,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { SealedEnvError } from '../../core/errors.js';
-import { decryptSealedFile, resealLikeSource } from '../utils/io.js';
+import { decryptSealedFile, resealLikeSource, writeSealedFile } from '../utils/io.js';
 
 export function editCommand(argv: string[]): void {
   const input = argv[0];
@@ -124,8 +122,7 @@ export function editCommand(argv: string[]): void {
 
     savedSealed = resealLikeSource(source, newPlaintext);
     const absolute = resolve(input);
-    copyFileSync(absolute, absolute + '.bak');
-    writeFileSync(absolute, savedSealed, { encoding: 'utf8', mode: 0o644 });
+    writeSealedFile(absolute, savedSealed, { preserveBackup: { backupPath: absolute + '.bak' } });
 
     process.stdout.write(
       [
