@@ -21,7 +21,21 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
   (e.g. Redis-backed) via `LoadSealedOptions.replayCache` / `UnsealOptions.replayCache`
   to share replay state across processes. Opt out via `replayCache: null` (emits a
   one-time stderr warning containing `replay-cache-disabled`).
-  Java parallel implementation coming in PR-B1b.
+
+- **SEC-006 (Java): Replay cache mirrored in Java.** `ReplayCache` interface +
+  `InProcessReplayCache` default (10k-entry bounded LRU backed by `ConcurrentHashMap`).
+  Same fail-closed semantics as Node: cache-backend failure surfaces as `TOKEN_INVALID`
+  with `SealedEnvException.reason() == "replay-cache-unavailable"`. Opt out via
+  `UnsealOptions.replayCache = SealedEnv.REPLAY_CACHE_DISABLED` (emits a one-time
+  `System.err` warning containing `replay-cache-disabled`).
+
+### Removed
+
+- **Java public API:** `UnsealToken.VerifyInput.isOpsIdSeen(Predicate<String>)` removed.
+  Replay enforcement now lives in `SealedEnv.unseal()` with the `ReplayCache` interface
+  (single source of truth, parity with Node). Audit (SEC-006) confirmed zero real callers —
+  `SealedEnv.unseal()` never wired the predicate. Callers using the 4-arg convenience
+  constructor `VerifyInput(token, derivedKey, deployId, challengeBindEnabled)` are unaffected.
 
 <!-- SEC-009 section added by PR-B2 -->
 
