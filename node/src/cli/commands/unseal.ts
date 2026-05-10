@@ -15,8 +15,11 @@
  *                                 the .env.sealed file. The token will
  *                                 work with that exact file at decrypt time.
  *   - Fallback:  --salt <hex>   → manually provided salt (advanced).
- *   - Last:      no flag        → uses a zero-salt sentinel for legacy use.
- *                                 NOT recommended for enterprise mode.
+ *   - Opt-in:   --unsafe-zero-salt  DANGEROUS: signs token with all-zero salt.
+ *                                   Token will be unsafe for production use.
+ *                                   Only correct when the verifying process
+ *                                   derived its key from a zero salt in the
+ *                                   same run. DO NOT USE in production.
  */
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -41,6 +44,7 @@ export async function unsealCommand(argv: string[]): Promise<void> {
     ttl: { type: 'string', default: '60' },
     salt: { type: 'string', default: '' },
     'token-only': { type: 'boolean', default: false },
+    'unsafe-zero-salt': { type: 'boolean', default: false },
   });
   const tokenOnly = values['token-only'] as boolean;
 
@@ -88,11 +92,18 @@ export async function unsealCommand(argv: string[]): Promise<void> {
     }
     kdfParams = { kind: 'scrypt', params: { ...DEFAULT_SCRYPT_PARAMS } };
   } else {
+    if (!(values['unsafe-zero-salt'] as boolean)) {
+      throw new SealedEnvError(
+        'CONFIG_ERROR',
+        '--file or --salt required; pass --unsafe-zero-salt to opt into the ' +
+          'legacy zero-salt sentinel (DO NOT USE in production)',
+      );
+    }
     salt = Buffer.alloc(16, 0); // sentinel
     kdfParams = { kind: 'scrypt', params: { ...DEFAULT_SCRYPT_PARAMS } };
     process.stderr.write(
-      'warning: no --file or --salt; signing with zero-salt sentinel. ' +
-        'Pass --file <.env.sealed> for tokens that interop with the actual file.\n',
+      'warning: --unsafe-zero-salt active. Signing with zero salt — token only ' +
+        'valid against zero-salt files (none in normal use). NOT for production.\n',
     );
   }
 
