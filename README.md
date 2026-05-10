@@ -269,9 +269,26 @@ work out of the box. **It's public — never use it in real projects.**
 
 ## Companion: sealed-env Studio (pre-alpha)
 
-A desktop GUI on top of sealed-env, for the people who don't live
-in the terminal. Currently in design phase — looking for
-collaborators.
+A desktop GUI on top of `sealed-env`, for the people who don't live in
+the terminal. Built with Tauri 2 + React + TypeScript, with its own
+Rust implementation of `SEALED-ENV-V1` — the **third stack** alongside
+Node and Java, validated against the same cross-stack test vectors.
+
+What works today:
+
+- **Viewer** — open a `.env.sealed` file, unlock with master / signing /
+  TOTP, browse and mask values.
+- **Init wizard** — 5-step flow (folder → mode → source → keys →
+  review) for `basic`, `team`, and `enterprise`. Auto-detects `.env`,
+  `.env.example`, `.env.sample`, `.env.template`, `.env.dist`. QR code
+  for enterprise authenticator pairing. Auto-appends `.env` to
+  `.gitignore`.
+- **Recent projects** + settings panel (default mode, gitignore
+  toggle, value masking, Argon2id parameter tuning).
+
+Still pre-alpha — looking for testers and contributors. The Rust core
+reads files sealed by the Node CLI and Java library byte-for-byte
+(validated by `decrypts_node_enterprise_vector` and friends in CI).
 
 [**→ github.com/davidalmeidac/sealed-env-studio**](https://github.com/davidalmeidac/sealed-env-studio)
 
@@ -317,7 +334,7 @@ for `0.2.0`.
 
 **Companion projects:**
 
-- [sealed-env-studio](https://github.com/davidalmeidac/sealed-env-studio) — desktop GUI, pre-alpha, design phase
+- [sealed-env-studio](https://github.com/davidalmeidac/sealed-env-studio) — desktop GUI (Tauri + React + Rust), Phase 1 viewer + Phase 2 init wizard implemented, cross-stack interop validated, pre-alpha
 
 ## Contributing
 
