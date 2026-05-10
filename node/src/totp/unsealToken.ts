@@ -27,6 +27,7 @@ import {
   MAX_UNSEAL_TOKEN_AGE_SECONDS,
   EPOCH_DERIVE_TAG,
 } from '../format/constants.js';
+import { decodeBase64Strict } from '../format/parser.js';
 
 const TOKEN_PREFIX = 'usl_';
 
@@ -188,8 +189,16 @@ export function verifyUnsealToken(input: VerifyTokenInput): VerifyTokenResult {
 
   let enterpriseEpoch: Buffer;
   try {
-    enterpriseEpoch = Buffer.from(payload.epoch, 'base64');
-  } catch {
+    // SEC-007: strict base64 validation before decode. decodeBase64Strict rejects
+    // whitespace, non-base64 chars, and malformed padding — matching Java's
+    // Base64.getDecoder() strict behavior. Wraps to TOKEN_INVALID (not DECRYPT_FAILED)
+    // because this is a structural token error, not a crypto failure.
+    // (See decodeBase64Strict in format/parser.ts; cross-stack symmetry with Java.)
+    enterpriseEpoch = decodeBase64Strict(payload.epoch, 'epoch');
+  } catch (e) {
+    if (e instanceof SealedEnvError) {
+      throw new SealedEnvError('TOKEN_INVALID', 'unseal token epoch malformed (SEC-007)');
+    }
     throw new SealedEnvError('TOKEN_INVALID', 'unseal token epoch unreadable');
   }
   // HMAC-SHA256 output is always exactly 32 bytes. Any other length

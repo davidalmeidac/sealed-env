@@ -1,0 +1,10 @@
+{
+  "name": "enterprise-token-malformed-epoch",
+  "purpose": "Token whose payload.epoch contains a tab character (invalid base64). All stacks MUST reject with TOKEN_INVALID (or stack-equivalent).",
+  "masterKeyHex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "totpSecretHex": "cccccccccccccccccccccccccccccccccccccccc",
+  "saltHex": "00000000000000000000000000000000",
+  "derivedKeyHex": "3601493fe669cebf7b60ce544266102157f635199a9fc003bb6f136a672856ff",
+  "token": "usl_eyJhbGciOiJIUzI1NiIsInR5cCI6InNlYWxlZC1lbnYtdW5zZWFsL3YxIn0.eyJpc3MiOiJzZWFsZWQtZW52LWNsaSIsImlhdCI6MTc3ODQ0NTUwNCwiZXhwIjoxNzc4NDQ5MTA0LCJlcG9jaCI6Ilx0QnNoUWhwcG1UWmwrNmgrR2lvM3VMK3dITC9YdDl2STZyd0ZhbWJsa1k3QT0iLCJkZXBsb3lfaWQiOm51bGwsIm9wc19pZCI6Imdlbi12ZWN0b3ItZml4ZWQtb3BzLWlkIn0.va4l_4z_JGWsxOsG1gG7C4N5IslhS4qq2qY8HbPkTas",
+  "expectedError": "TOKEN_INVALID"
+}
