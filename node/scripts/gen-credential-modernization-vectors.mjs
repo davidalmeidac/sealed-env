@@ -18,7 +18,7 @@
  * in any stack. The fixtures freeze the contract before implementation.
  */
 
-import { createHmac, createHash, hkdfSync } from 'node:crypto';
+import { createHmac, createHash, hkdfSync, scryptSync } from 'node:crypto';
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -120,6 +120,25 @@ function cborEncode(obj) {
 const TOKEN_CHECKSUM_KEY = Buffer.from('sealed-env:token-checksum:v1', 'utf8');
 const VAULT_ID_PREFIX = Buffer.from('sealed-env:vault-id:v1', 'utf8');
 const DEPLOY_SIG_INFO = Buffer.from('sealed-env:deploy-sig:v1', 'utf8');
+const EPOCH_INFO = Buffer.from('epoch-v1', 'utf8');
+const UNSEAL_TOKEN_KEY_INFO = Buffer.from('sealed-env:unseal-token-key:v1', 'utf8');
+
+// scrypt params — match sealed-env 0.1.1 default (SEC-002 OWASP 2024 floor).
+// Fixtures pin these so any stack can re-derive ek byte-identically.
+const SCRYPT_N = 131072;
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+// scryptSync needs maxmem >= 128 * N * r bytes. For N=131072, r=8 → 128 MiB.
+const SCRYPT_MAXMEM = 256 * 1024 * 1024;
+
+function scryptDerive(masterKey, salt) {
+  return scryptSync(masterKey, salt, 32, {
+    N: SCRYPT_N,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+    maxmem: SCRYPT_MAXMEM,
+  });
+}
 
 function base64url(buf) {
   return buf.toString('base64').replace(/=+$/g, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -181,16 +200,70 @@ function tamperPayload(token) {
 // ---------------------------------------------------------------------------
 
 function buildTierBToken({ masterKey, salt, exp, nonce, overrideVaultId }) {
-  const ek = masterKey; // Locked option A: ek = derived_key. For fixture
-                        // determinism we treat masterKey as the derived
-                        // key — runtime stacks will substitute the real
-                        // KDF output. The contract under test is the
-                        // CBOR + sig + parser, not the KDF binding.
+  // ek = derived_key per SPEC §12.5 (locked option A). Fixtures use the
+  // 0.1.1 default scrypt params (N=131072, r=8, p=1) so any conformant
+  // stack can re-derive ek byte-for-byte from masterKey + salt + the
+  // fixture's vault.kdf_params.
+  const ek = scryptDerive(masterKey, salt);
   const vid = overrideVaultId ?? vaultId(salt);
   const payloadNoSig = cborEncode({ ek, exp, nonce, vault_id: vid });
   const hmacKey = hkdfSha256(masterKey, salt, DEPLOY_SIG_INFO, 32);
   const sig = hmacSha256(hmacKey, payloadNoSig);
   return mintToken('d', { ek, exp, sig, nonce, vault_id: vid });
+}
+
+// Builds a u-mode token: wire-form re-wrap of the legacy JWS Compact
+// unseal token (SPEC §9 + §11.6). The CBOR payload carries the same
+// fields as the JWS payload plus the JWS signature as a separate
+// byte string. Reading and writing is lossless (§11.6).
+function buildUnsealToken({
+  masterKey,
+  signingKey,
+  totpSecret,
+  salt,
+  iss = 'sealed-env-cli',
+  iat,
+  exp,
+  deployId = null,
+  opsId,
+}) {
+  // enterprise_epoch is bound to (totpSecret, salt) per SPEC §9.
+  const enterpriseEpoch = hmacSha256(totpSecret, Buffer.concat([salt, EPOCH_INFO]));
+  // The legacy JWS unseal-token-key is HKDF(derived_key, ...). We use the
+  // signingKey as an additional ingredient to bind team/enterprise scope.
+  const derivedKey = scryptDerive(masterKey, salt);
+  const tokenKey = hkdfSha256(
+    Buffer.concat([derivedKey, signingKey]),
+    salt,
+    UNSEAL_TOKEN_KEY_INFO,
+    32,
+  );
+  // Construct the JWS header + payload that the legacy verifier would
+  // sign. Sig is HMAC over base64url(header)+"."+base64url(payload).
+  const header = { alg: 'HS256', typ: 'sealed-env-unseal/v1' };
+  const payload = {
+    iss,
+    iat,
+    exp,
+    epoch: enterpriseEpoch.toString('base64'),
+    deploy_id: deployId,
+    ops_id: opsId,
+  };
+  const hB64 = base64url(Buffer.from(JSON.stringify(header), 'utf8'));
+  const pB64 = base64url(Buffer.from(JSON.stringify(payload), 'utf8'));
+  const signingInput = Buffer.from(`${hB64}.${pB64}`, 'utf8');
+  const sig = hmacSha256(tokenKey, signingInput);
+  // Re-wrap into CBOR per §11.6 u-mode. Encoder sorts keys per RFC 8949
+  // §4.2.1 → exp, iat, iss, sig, epoch, ops_id, deploy_id.
+  return mintToken('u', {
+    iss,
+    iat,
+    exp,
+    epoch: payload.epoch, // text string (standard base64 of 32 bytes)
+    deploy_id: deployId,
+    ops_id: opsId,
+    sig,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -253,6 +326,41 @@ function runSelfChecks() {
   assertEqual(payloadBytes[0], 0xa5, 'CBOR map header for 5-entry map');
   // Second byte is the head of first key: tstr-2 ("ek") = 0x62.
   assertEqual(payloadBytes[1], 0x62, 'first key has length 2 (must be "ek")');
+
+  // 5. u-mode token mint is deterministic with fixed inputs (no Date.now()).
+  const u1 = buildUnsealToken({
+    masterKey: MASTER_KEY,
+    signingKey: SIGNING_KEY,
+    totpSecret: TOTP_SECRET,
+    salt: SALT,
+    iat: 1767225600,
+    exp: 4102444800,
+    deployId: null,
+    opsId: 'fixture-u-mode-ops-id-v1',
+  });
+  const u2 = buildUnsealToken({
+    masterKey: MASTER_KEY,
+    signingKey: SIGNING_KEY,
+    totpSecret: TOTP_SECRET,
+    salt: SALT,
+    iat: 1767225600,
+    exp: 4102444800,
+    deployId: null,
+    opsId: 'fixture-u-mode-ops-id-v1',
+  });
+  assertEqual(u1, u2, 'u-mode token mint is deterministic');
+
+  // 6. u-mode canonical key order per §11.6 is exp, iat, iss, sig, epoch,
+  //    ops_id, deploy_id. Verify the head bytes of the CBOR payload.
+  const uPayloadBytes = Buffer.from(
+    u1.split('_')[4].replace(/-/g, '+').replace(/_/g, '/') +
+      '==='.slice((u1.split('_')[4].length + 3) % 4),
+    'base64',
+  );
+  // Map of 7 entries (one fewer than 8 → still major-type-5 short-form 0xa7).
+  assertEqual(uPayloadBytes[0], 0xa7, 'CBOR map header for 7-entry u-mode payload');
+  // First key is "exp" (length 3) → 0x63.
+  assertEqual(uPayloadBytes[1], 0x63, 'u-mode first key has length 3 (must be "exp")');
 }
 
 // ---------------------------------------------------------------------------
@@ -266,6 +374,8 @@ function vaultStubBasic() {
   return {
     salt_hex: SALT.toString('hex'),
     master_key_hex: MASTER_KEY.toString('hex'),
+    kdf: 'scrypt',
+    kdf_params: { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P },
     serialized: '<see test-vectors/v1/node-basic.json — same fixed keys + plaintext>',
   };
 }
@@ -357,6 +467,37 @@ function tierBDeployValid() {
     expected: {
       result: 'decrypt_ok',
       plaintext_hex: FIXED_PLAINTEXT_HEX,
+    },
+  };
+}
+
+function unsealValid() {
+  // u-mode is a non-breaking wire-form re-wrap of the legacy JWS Compact
+  // unseal token (SPEC §9 + §11.6). Present in 0.3.0 to bridge legacy
+  // verifiers that still parse base64url(header).base64url(payload).sig
+  // with the new unified token envelope. Bytes are testable forever:
+  // iat/exp/ops_id are fixed so the token doesn't depend on Date.now().
+  const token = buildUnsealToken({
+    masterKey: MASTER_KEY,
+    signingKey: SIGNING_KEY,
+    totpSecret: TOTP_SECRET,
+    salt: SALT,
+    iat: 1767225600, // 2026-01-01T00:00:00Z
+    exp: 4102444800, // 2100-01-01T00:00:00Z
+    deployId: null,
+    opsId: 'fixture-u-mode-ops-id-v1',
+  });
+  return {
+    name: 'credential-modernization-unseal-valid',
+    purpose: 'Happy path for §11.6 mode "u": legacy-compat wrap of a JWS unseal token, decodes to the same JWS payload bytes the §9 verifier accepts.',
+    spec_section: '§9, §11.6, §11.7',
+    vault: vaultStubEnterprise(),
+    token,
+    config_file_contents: null,
+    expected: {
+      result: 'decrypt_ok',
+      plaintext_hex: FIXED_PLAINTEXT_HEX,
+      legacy_compat_note: 'A conformant stack MUST be able to losslessly serialize the CBOR payload back to the JWS Compact wire form documented in §9. The token sig (HMAC over base64url(header)+"."+base64url(payload)) is the EXACT byte sequence a §9 verifier would compute.',
     },
   };
 }
@@ -544,6 +685,7 @@ function main() {
     basicValid(),
     teamValid(),
     enterpriseValid(),
+    unsealValid(),
     tierBDeployValid(),
     wrongChecksum(),
     tamperedPayload(),
