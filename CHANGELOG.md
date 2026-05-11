@@ -10,6 +10,15 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [Unreleased]
+
+### Spec
+
+- **SPEC.md §11 (Token format) + §12 (Deploy mode + ephemeral tokens) added.**
+  Defines the cross-stack contract for `0.3.0` Credential Modernization. Doc-only — no runtime code yet. Runtime implementation begins after this PR merges and applies across Node, Java, and Rust (sister `sealed-env-studio`). See `test-vectors/v1/credential-modernization-*.json` for the 11 byte-identical fixtures.
+
+---
+
 ## [0.2.0] - 2026-05-10
 
 ### Security
