@@ -602,6 +602,375 @@ subsection it exercises. The fixture suite covers every reject point in
 
 The full fixture roster is enumerated in §12.10.
 
+## 12. Deploy mode and ephemeral tokens (canonical)
+
+### 12.1 Motivation — Tier A vs Tier B
+
+A long-lived root credential pasted into a CI secret is a security smell.
+If GitHub Actions logs leak, if a developer's laptop is compromised, or
+if the CI provider itself is breached, the attacker walks away with the
+ability to decrypt every `.env.sealed` produced from that vault — forever
+or until the operator notices and rotates. Long-lived `sealed_env_t_*`
+tokens belong in password managers and KMS, not in CI runners.
+
+Tier B introduces a **short-lived deploy token**:
+
+| Tier | Token prefix | TTL | Storage | CI? |
+|------|--------------|-----|---------|-----|
+| A · Root | `sealed_env_{b,t,e}_*` | infinite | password manager / KMS / Studio keychain | only if `deploy_mode=static` |
+| B · Deploy | `sealed_env_d_*` | 60s – 600s | one-shot env var per deploy | yes — designed for this |
+
+The operator mints a Tier B token from a Tier A unlock on their local
+machine (CLI prompts for passphrase + TOTP if enterprise), pastes it into
+the CI run's environment as `SEALED_ENV_DEPLOY_TOKEN`, the deploy runs,
+the token expires. A leaked deploy token grants exactly one decrypt
+window of N seconds against exactly one vault.
+
+### 12.2 `.sealed-env.config.json` schema
+
+A new file sits next to `.env.sealed`. It is **committable** — it
+contains no secret material. It records the operator's deploy policy
+for this vault.
+
+```json
+{
+  "deploy_mode": "ephemeral",
+  "deploy_ttl_max_seconds": 60,
+  "require_totp_on_mint": false,
+  "allow_long_lived_for_dev": true,
+  "nonce_state_backend": null
+}
+```
+
+| Field | Type | Default | Effect |
+|-------|------|---------|--------|
+| `deploy_mode` | enum | see §12.3 | `static` / `ephemeral` / `workload-identity`. CLI rejects tokens of insufficient tier. |
+| `deploy_ttl_max_seconds` | int | `60` | Operator-chosen ceiling on `--ttl`. Max permitted by the format: `600`. CLI MUST refuse `--ttl` values above this field. |
+| `require_totp_on_mint` | bool | `false` (`true` for enterprise vaults) | Forces 6-digit TOTP entry on every `mint-deploy`. |
+| `allow_long_lived_for_dev` | bool | `true` | If `false`, the local operator cannot decrypt with a Tier A token directly; they MUST mint a Tier B token even for local development. |
+| `nonce_state_backend` | string \| null | `null` | URI of a Redis/DynamoDB backend that records seen nonces. When set, the reader enforces single-use across CI jobs. When `null`, only TTL bounds replay. |
+
+#### Validation rules
+
+1. Unknown top-level fields MUST be **silently ignored** for forward
+   compatibility with 0.4.0 (which adds `require_signed_tokens`,
+   `authorized_signers`, and similar identity fields).
+2. `deploy_ttl_max_seconds` outside `[1, 600]` is a config error
+   (`CONFIG_ERROR`, cause `"ttl-out-of-range"`).
+3. `deploy_mode` not in `{"static", "ephemeral", "workload-identity"}`
+   is a config error (`CONFIG_ERROR`, cause `"bad-deploy-mode"`).
+4. For an **enterprise** vault, `deploy_mode == "static"` is a config
+   error (cause `"enterprise-requires-ephemeral"`). See §12.3.
+5. Missing fields take the defaults in the table above.
+
+### 12.3 Default `deploy_mode` per vault mode
+
+| Vault mode | Default `deploy_mode` | Rationale |
+|------------|------------------------|-----------|
+| `basic` | `static` | Hobby / solo dev. Preserve original simplicity. Operator may opt up to `ephemeral`. |
+| `team` | `static` | Operator may opt up to `ephemeral`. |
+| `enterprise` | `ephemeral` **MANDATORY** | The TOTP requirement already implies human-in-the-loop per deploy; long-lived tokens annul that threat model. A `.sealed-env.config.json` declaring `deploy_mode: "static"` for an enterprise vault MUST be rejected as invalid. |
+
+The CLI's `init` command MUST write a `.sealed-env.config.json` with the
+appropriate defaults at vault creation time.
+
+### 12.4 Vault ID
+
+Every Tier B token names the vault it was minted against. The reader
+verifies the name before doing any cryptography. The vault name is
+deterministic from the file's public salt.
+
+```
+vault_id = SHA-256( "sealed-env:vault-id:v1" || salt )
+```
+
+- `"sealed-env:vault-id:v1"` is a 23-byte ASCII literal (no NUL
+  terminator). It provides domain separation so that `vault_id` cannot
+  be confused with any other SHA-256 output in the protocol.
+- `salt` is the raw 16-byte salt from the `.env.sealed` header (the
+  decoded value of the `SALT=` line), not the base64 form.
+- Output is the full 32-byte SHA-256 digest.
+
+#### Vault ID is NOT a secret
+
+`vault_id` is a **scoping identifier**, not a security boundary. It is:
+
+1. **Publicly derivable.** The salt it commits to is already visible
+   in cleartext in the `.env.sealed` file header. Anyone with the
+   `.env.sealed` can compute the `vault_id` in one SHA-256.
+2. **Designed to be visible in Tier B tokens.** A deploy token names
+   the vault it targets; that name is on the wire by design.
+3. **Not relied on for integrity or authenticity.** The cryptographic
+   gate that prevents forgery is the `sig` field (§12.5) combined with
+   `exp` (§12.7 step 3) and the optional nonce check (§12.8). Removing
+   `vault_id` from a forged token would not make it accepted; rewriting
+   `vault_id` to point at a different vault would not bypass `sig`
+   either, because `sig` is computed over the bytes that include
+   `vault_id`.
+
+Implementations MUST NOT treat `vault_id` as authenticating anything on
+its own. Its only job is to fail fast and loud when an operator pastes
+a deploy token meant for vault A into a deploy of vault B.
+
+### 12.5 Tier B payload
+
+Recall the wire-form schema (§11.6, mode `d`):
+
+```cbor
+{
+  "ek":       <bstr 32>,
+  "exp":      <uint>,
+  "sig":      <bstr 32>,
+  "nonce":    <bstr 16>,
+  "vault_id": <bstr 32>
+}
+```
+
+#### Field semantics
+
+| Field | Purpose |
+|-------|---------|
+| `ek` | The 32-byte AES-256-GCM key the verifier uses to decrypt the body of `.env.sealed`. See "Ephemeral key interpretation" below. |
+| `exp` | Unsigned unix seconds. The instant past which the reader MUST reject the token. |
+| `sig` | HMAC-SHA256 binding `ek`, `exp`, `nonce`, `vault_id` to the master key + salt. Forgery gate. |
+| `nonce` | Per-mint random 16 bytes. Always present on the wire. Used by §12.8 if a state backend is configured; advisory otherwise. |
+| `vault_id` | Per §12.4. Scoping identifier. |
+
+#### Ephemeral key interpretation (locked)
+
+```
+ek = derived_key
+```
+
+Where `derived_key` is the same 32-byte output produced by §6 step 3 of
+this SPEC (the KDF applied to the master key with the file's salt and
+KDF params). **The Tier B token wraps the derived key behind a TTL and a
+signature.** This is the simplest viable design and was chosen over an
+HKDF-with-fresh-nonce variant for three reasons:
+
+1. **No extra wire field.** No `derivation_nonce` to carry.
+2. **No extra computation.** Verifier already computes `derived_key` for
+   normal decrypts.
+3. **The TTL is the freshness gate.** A leaked Tier B token grants
+   decrypts only until `exp`. After `exp`, the token is dead even
+   though `derived_key` is unchanged. To rotate the underlying key, the
+   operator runs `sealed-env rotate`, which generates a fresh salt and
+   therefore a fresh `derived_key`.
+
+Compromise scope: a captured Tier B token = N seconds of decrypt
+capability against one vault. Rotating the vault (new salt) invalidates
+every outstanding Tier B token for that vault — they reference the old
+`vault_id`.
+
+#### Signature derivation
+
+The `sig` field binds the other four fields to the master key.
+
+```
+hmac_key = HKDF-SHA256(
+  IKM    = master_key,
+  salt   = salt,
+  info   = "sealed-env:deploy-sig:v1",
+  length = 32
+)
+
+payload_without_sig = CBOR-encode-deterministic({
+  "ek":       <ek>,
+  "exp":      <exp>,
+  "nonce":    <nonce>,
+  "vault_id": <vault_id>
+})        ; key order per §11.5: ek, exp, nonce, vault_id
+
+sig = HMAC-SHA256(hmac_key, payload_without_sig)
+```
+
+The wire-form payload contains all five keys (including `sig`) sorted
+per §11.5: **ek, exp, sig, nonce, vault_id**. The verifier reconstructs
+`payload_without_sig` by re-encoding the map with the `sig` key removed
+(four keys, sorted as **ek, exp, nonce, vault_id**) and re-running the
+HMAC. The recomputation MUST be byte-identical to the minter's encoding;
+this is why deterministic CBOR per §11.5 is mandatory and not advisory.
+
+The HKDF `info` string `"sealed-env:deploy-sig:v1"` is a public
+domain-separation literal. It ensures the `sig` HMAC key cannot collide
+with any other HMAC key derived from the same master+salt elsewhere in
+the protocol.
+
+### 12.6 Mint procedure
+
+`sealed-env mint-deploy --vault <path> --ttl <duration>` performs:
+
+```
+INPUT: vault path, requested ttl, operator credentials (Tier A unlock)
+
+1. Read .env.sealed → extract salt, kdf_params.
+2. Read .sealed-env.config.json (sibling). Validate per §12.2.
+3. requested_ttl ≤ config.deploy_ttl_max_seconds .... else CONFIG_ERROR(ttl-cap)
+4. If config.require_totp_on_mint, prompt for 6-digit code; verify per §9.
+5. derived_key = KDF(master_key, salt, kdf_params)        ; §6 step 3
+6. nonce      = randomBytes(16)
+7. now        = current unix seconds
+8. exp        = now + requested_ttl
+9. vault_id   = SHA-256("sealed-env:vault-id:v1" || salt) ; §12.4
+10. ek        = derived_key                               ; §12.5
+11. payload_without_sig = cbor({ek, exp, nonce, vault_id})
+12. hmac_key  = HKDF(master_key, salt, "sealed-env:deploy-sig:v1", 32)
+13. sig       = HMAC-SHA256(hmac_key, payload_without_sig)
+14. payload   = cbor({ek, exp, sig, nonce, vault_id})
+15. token     = "sealed_env_d_" || hex(HMAC(...)[0:2]) || "_" || base64url(payload)  ; §11.4
+16. Emit token on stdout. Do NOT log to any file.
+```
+
+The mint procedure MUST run entirely in process memory. No intermediate
+artifact (especially not `derived_key` or `ek`) is written to disk.
+
+### 12.7 Verify procedure
+
+`sealed-env decrypt` with `SEALED_ENV_DEPLOY_TOKEN` set performs:
+
+```
+INPUT: vault path, deploy token, optional config
+
+1. Parse token per §11.7 steps 1-9 ............. errors as defined there.
+2. mode == "d" ................................. else TOKEN_INVALID(wrong-mode)
+3. exp > now ................................... else TOKEN_EXPIRED
+4. Read .env.sealed → salt, kdf_params, ciphertext.
+5. local_vault_id = SHA-256("sealed-env:vault-id:v1" || salt)
+6. constant_time_compare(token.vault_id, local_vault_id)
+   ............................................. else TOKEN_INVALID(vault-mismatch)
+7. If config.nonce_state_backend is set:
+     If backend.has_seen(token.nonce) ........... → TOKEN_INVALID(replay)
+     backend.record(token.nonce, ttl=exp-now)
+   (If the backend itself errors, fail closed: TOKEN_INVALID, cause
+    "replay-cache-unavailable". This mirrors §SEC-006 fail-closed
+    semantics for the unseal replay cache.)
+8. hmac_key = HKDF(master_key, salt, "sealed-env:deploy-sig:v1", 32)
+   payload_without_sig = re-encode the CBOR map without "sig" (§11.5)
+   expected_sig = HMAC-SHA256(hmac_key, payload_without_sig)
+   constant_time_compare(token.sig, expected_sig)
+   ............................................. else TOKEN_INVALID(sig)
+9. enc_key  = HKDF(token.ek, salt, "sealed-env:v1:enc", 32)  ; §6 step 4
+10. plaintext = AES-256-GCM-decrypt(enc_key, nonce, ciphertext, aad)
+    ............................................. else per §7 step 8
+```
+
+The signature check at step 8 MUST use a constant-time comparison
+(e.g. Node `crypto.timingSafeEqual`, Java `MessageDigest.isEqual`, Rust
+`subtle::ConstantTimeEq`). The `vault_id` check at step 6 SHOULD also
+use a constant-time comparison; it is not strictly load-bearing for
+authenticity (see §12.4), but constant-time keeps the implementation
+uniformly disciplined.
+
+Note that step 8 requires the verifier to hold the **master key**, not
+just `ek`. This is intentional: a Tier B verifier needs the master key
+in process memory to authenticate the deploy token, then uses `ek` only
+to derive the AES key. The master key arrives by the same path it does
+today (`SEALED_ENV_KEY` or, post-§11, the `m` field of a Tier A
+`sealed_env_t_*` companion token). When the Tier A side is itself
+unavailable (workload-identity scenario), the master key arrives via the
+minter service per §12.9.
+
+### 12.8 Replay protection
+
+`nonce` is **always** on the wire. Whether replay is enforced depends
+on the vault's `.sealed-env.config.json`:
+
+| `nonce_state_backend` | Effect |
+|------------------------|--------|
+| `null` (default) | Replay bounded only by TTL. Re-using a token within `[now, exp)` succeeds. Suitable for short TTLs (≤ 60s) where the replay window is operationally negligible. |
+| `<redis-uri>` or `<dynamodb-uri>` | The reader records every consumed nonce in the backend keyed by `(vault_id, nonce)` with TTL = `exp - now`. A second presentation of the same nonce is rejected at step 7 of §12.7. |
+
+The state backend MUST support atomic check-and-set semantics. A
+non-atomic check followed by a separate write is vulnerable to a TOCTOU
+race in concurrent deploys.
+
+This is opt-in for two reasons:
+
+1. **Operational cost.** Many deployments do not have a shared
+   Redis/DynamoDB available, especially solo-dev setups.
+2. **Fail-closed footprint.** When the backend is configured but
+   unavailable, decrypt MUST fail (cause `"replay-cache-unavailable"`).
+   That tradeoff is correct for high-stakes deploys and excessive for
+   hobby projects.
+
+The reader MUST emit a one-time stderr warning containing the literal
+substring `"deploy-replay-disabled"` when `nonce_state_backend` is
+`null` AND `deploy_mode == "ephemeral"`, so operators of
+ephemeral-but-stateless deploys learn that they are relying on TTL
+alone.
+
+### 12.9 Workload identity (informative, future)
+
+> **Status:** non-normative for 0.3.0. Sketch only. A separate PR will
+> spec the minter service in detail.
+
+For CI pipelines that want neither long-lived secrets nor manual
+operator-in-the-loop minting, the workload-identity mode looks like:
+
+```
+GitHub Actions OIDC token
+          │
+          ▼
+     Minter service (lambda / cloud function)
+          │  validates OIDC claims (repo, ref, env)
+          │  holds Tier A credentials in cloud KMS
+          │  mints sealed_env_d_* with short TTL
+          ▼
+     CI run uses token, decrypts, deploys
+```
+
+Properties:
+
+- The minter service is **not** shipped with `sealed-env` core. It is
+  stack-agnostic and lives as a reference implementation + recipes.
+- The CI pipeline never holds Tier A material; it only ever holds a
+  fresh Tier B token bounded by TTL.
+- The minter validates OIDC claims (e.g. only the `main` branch of
+  `org/repo` can mint a production deploy token).
+
+This section will become normative in a future SPEC revision. For
+0.3.0, `deploy_mode: "workload-identity"` is a reserved value: readers
+that encounter it MUST refuse with `CONFIG_ERROR`, cause
+`"workload-identity-not-implemented"`, until the minter contract is
+specified.
+
+### 12.10 Test vectors
+
+The byte-identical fixtures for §11 and §12 live at
+`test-vectors/v1/credential-modernization-*.json`. Each fixture has the
+schema documented in §11.10.1. The roster:
+
+| Filename | `expected.result` | Exercises |
+|----------|-------------------|-----------|
+| `credential-modernization-basic-valid.json` | `decrypt_ok` | §11.6 mode `b`, §11.7 happy path |
+| `credential-modernization-team-valid.json` | `decrypt_ok` | §11.6 mode `t`, §11.7 happy path |
+| `credential-modernization-enterprise-valid.json` | `decrypt_ok` | §11.6 mode `e`, Tier A unlock |
+| `credential-modernization-tier-b-deploy-valid.json` | `decrypt_ok` | §12.5–§12.7 happy path |
+| `credential-modernization-wrong-checksum.json` | `reject_pre_decrypt` | §11.4 typo detection |
+| `credential-modernization-tampered-payload.json` | `reject_sig_fail` | §12.5 / §12.7 step 8 |
+| `credential-modernization-wrong-vault-id.json` | `reject_vault_mismatch` | §12.4 / §12.7 step 6 |
+| `credential-modernization-expired.json` | `reject_expired` | §12.7 step 3 |
+| `credential-modernization-replay-after-nonce-seen.json` | `reject_replay` | §12.7 step 7 / §12.8 |
+| `credential-modernization-future-fields-ignored.json` | `parse_ok_ignore_unknown` | §11.8 forward-compat |
+| `credential-modernization-legacy-key-still-works.json` | `decrypt_ok_with_warning` | §11.9 backward-compat |
+
+All fixtures use FIXED key material so reruns are byte-stable:
+
+| Material | Value |
+|----------|-------|
+| `master_key_hex` | `aa` × 32 (32 bytes of 0xaa) |
+| `signing_key_hex` | `bb` × 32 |
+| `totp_secret_hex` | `cc` × 20 |
+| `salt_hex` | `00` × 16 (matches existing `enterprise-token-malformed-epoch.json`) |
+| Tier B `exp` (valid) | `4102444800` (2100-01-01T00:00:00Z) |
+| Tier B `exp` (expired) | `1000000000` (2001-09-09) |
+| Tier B `nonce` | `11` × 16 |
+
+The generator script `node/scripts/gen-credential-modernization-vectors.mjs`
+produces all 11 fixtures deterministically. It contains its own minimal
+CBOR encoder (no npm dependency) covering the major types used here and
+asserts byte-equality across a double-encode pass before writing.
+
 ## 13. Implementation conformance test vectors
 
 A reference set of test vectors lives in `/test-vectors/v1/` (separate
