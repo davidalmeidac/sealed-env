@@ -5,9 +5,11 @@
 package io.github.davidalmeidac.sealedenv;
 
 import io.github.davidalmeidac.sealedenv.core.Constants;
+import io.github.davidalmeidac.sealedenv.core.InProcessReplayCache;
 import io.github.davidalmeidac.sealedenv.core.KdfAlgorithm;
 import io.github.davidalmeidac.sealedenv.core.KdfParams;
 import io.github.davidalmeidac.sealedenv.core.Mode;
+import io.github.davidalmeidac.sealedenv.core.ReplayCache;
 import io.github.davidalmeidac.sealedenv.core.SealedEnvException;
 import io.github.davidalmeidac.sealedenv.core.SealedEnvException.Code;
 import io.github.davidalmeidac.sealedenv.core.SealedFile;
@@ -39,6 +41,30 @@ public final class SealedEnv {
         throw new AssertionError("no instances");
     }
 
+    // ── Replay cache module-level state ────────────────────────────────────
+
+    /**
+     * Sentinel value for {@link UnsealOptions#replayCache}: pass this to
+     * explicitly opt out of replay protection. Re-use of the same token within
+     * its TTL will be permitted; a one-time structured warning is emitted to
+     * {@link System#err} containing {@code "replay-cache-disabled"}.
+     *
+     * <p>This is a no-op implementation — {@link ReplayCache#isOpsIdSeen} always
+     * returns {@code false} and {@link ReplayCache#markOpsIdSeen} is a no-op.
+     *
+     * <p>Distinct from {@code null}: a {@code null} cache means "use the default".
+     */
+    public static final ReplayCache REPLAY_CACHE_DISABLED = new ReplayCache() {
+        @Override public boolean isOpsIdSeen(String opsId) { return false; }
+        @Override public void markOpsIdSeen(String opsId, long expiresAtEpochMillis) { /* no-op */ }
+    };
+
+    /** Process-wide default cache. Shared across all calls without an explicit cache. */
+    private static final InProcessReplayCache DEFAULT_REPLAY_CACHE = new InProcessReplayCache();
+
+    /** Guards the one-time opt-out warning (written once, then latched). */
+    private static volatile boolean replayCacheOptOutWarned = false;
+
     /** Options for {@link #seal}. */
     public static final class SealOptions {
         public byte[] plaintext;
@@ -57,6 +83,18 @@ public final class SealedEnv {
         public byte[] signingKey;        // required for TEAM/ENTERPRISE
         public String unsealToken;       // required for ENTERPRISE
         public String deployId;          // required when CHALLENGE-BIND=enabled
+        /**
+         * Replay-protection cache.
+         *
+         * <ul>
+         *   <li>{@code null} (default) — use the process-wide {@link #DEFAULT_REPLAY_CACHE}
+         *       (an in-process bounded LRU).
+         *   <li>{@link #REPLAY_CACHE_DISABLED} — opt out; token re-use permitted; one-time
+         *       warning emitted to {@link System#err}.
+         *   <li>Any other non-null implementation — injected cache (e.g. Redis-backed).
+         * </ul>
+         */
+        public ReplayCache replayCache;
     }
 
     /** Result of {@link #seal}: parsed file + serialized text form. */
@@ -175,6 +213,24 @@ public final class SealedEnv {
             // in the token — the carried `enterpriseEpoch` is a salt-
             // bound HMAC derivative.
             if (file.mode() == Mode.ENTERPRISE) {
+                // Resolve replay cache for this call:
+                //   null            → use module-level default (InProcessReplayCache)
+                //   REPLAY_CACHE_DISABLED → opt-out; warn once; allow re-use
+                //   anything else   → injected custom cache
+                ReplayCache cache;
+                if (opts.replayCache == REPLAY_CACHE_DISABLED) {
+                    cache = REPLAY_CACHE_DISABLED;
+                    if (!replayCacheOptOutWarned) {
+                        replayCacheOptOutWarned = true;
+                        System.err.println("sealed-env warn=replay-cache-disabled " +
+                                "msg=Replay protection disabled. Token re-use is possible.");
+                    }
+                } else if (opts.replayCache != null) {
+                    cache = opts.replayCache;
+                } else {
+                    cache = DEFAULT_REPLAY_CACHE;
+                }
+
                 UnsealToken.VerifyResult result = UnsealToken.verify(
                         new UnsealToken.VerifyInput(
                                 opts.unsealToken,
@@ -182,13 +238,31 @@ public final class SealedEnv {
                                 opts.deployId,
                                 file.challengeBind().orElse(ChallengeBind.ENABLED)
                                         == ChallengeBind.ENABLED));
+
+                // Epoch-commit verification (constant-time)
                 byte[] expectedCommit = buildEpochCommitFromEpoch(derivedKey, result.enterpriseEpoch());
                 if (file.epochCommit().isEmpty()
                         || !CryptoPrimitives.constantTimeEqual(
                         expectedCommit, file.epochCommit().get())) {
+                    CryptoPrimitives.wipe(result.enterpriseEpoch());
                     throw SealedEnvException.decryptFailed();
                 }
                 CryptoPrimitives.wipe(result.enterpriseEpoch());
+
+                // Replay check: after epoch-commit passes (so epoch-mismatched tokens
+                // never pollute the cache), before decryption.
+                if (cache != REPLAY_CACHE_DISABLED) {
+                    if (cache.isOpsIdSeen(result.opsId())) {
+                        throw new SealedEnvException(Code.TOKEN_INVALID,
+                                "unseal token already used (replay)", "replay");
+                    }
+                    try {
+                        cache.markOpsIdSeen(result.opsId(), result.expEpochSec() * 1000L);
+                    } catch (Exception e) {
+                        throw new SealedEnvException(Code.TOKEN_INVALID,
+                                "unseal token replay cache unavailable", "replay-cache-unavailable");
+                    }
+                }
             }
 
             // AAD digest defense in depth (GCM tag would also catch this)

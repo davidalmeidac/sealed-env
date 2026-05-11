@@ -46,12 +46,19 @@ function base64UrlEncode(buf) {
   return buf.toString('base64').replace(/=+$/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
-const now = Math.floor(Date.now() / 1000);
+// Fixed timestamps so the vector is deterministic and never expires.
+// Using Date.now() previously caused the vector to expire ~1h after
+// regeneration, breaking Java's UnsealTokenMalformedEpochTest because
+// Java's verifier checks expiry BEFORE structural epoch validation and
+// thus throws TOKEN_EXPIRED instead of the TOKEN_INVALID the test
+// asserts. Far-future exp keeps the structural-error path reachable.
+const iat = 1767225600; // 2026-01-01T00:00:00Z
+const exp = 4102444800; // 2100-01-01T00:00:00Z
 const header = { alg: 'HS256', typ: 'sealed-env-unseal/v1' };
 const payload = {
   iss: 'sealed-env-cli',
-  iat: now,
-  exp: now + 3600, // 1 hour so the vector is testable for a while
+  iat,
+  exp,
   // TAB injected before the base64 epoch
   epoch: '\t' + epochB64,
   deploy_id: null,
