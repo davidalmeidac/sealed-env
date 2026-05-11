@@ -43,6 +43,42 @@ import type {
   UnsealOptions,
 } from './types.js';
 import { verifyUnsealToken } from '../totp/unsealToken.js';
+import { InProcessReplayCache, type ReplayCache } from './replay-cache.js';
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/*  MODULE-LEVEL REPLAY CACHE STATE                                          */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+// One process-wide default cache. Per-call ephemeral caches would let any
+// caller bypass replay protection by minting a fresh cache; module singleton
+// is the safer default.
+let defaultReplayCache: InProcessReplayCache | undefined;
+
+function getDefaultReplayCache(): InProcessReplayCache {
+  if (!defaultReplayCache) defaultReplayCache = new InProcessReplayCache();
+  return defaultReplayCache;
+}
+
+let optOutWarned = false;
+
+function warnReplayCacheDisabledOnce(): void {
+  if (optOutWarned) return;
+  optOutWarned = true;
+  process.stderr.write(
+    'sealed-env: warning: replayCache=null — unseal token re-use is permitted ' +
+      '(SEC-006 opt-out). Reason code: replay-cache-disabled.\n',
+  );
+}
+
+/**
+ * Reset module-level singleton state between tests.
+ * INTERNAL — do NOT call in production code.
+ * Exported only for test isolation; tree-shaken in prod builds.
+ */
+export function __resetForTests(): void {
+  defaultReplayCache = undefined;
+  optOutWarned = false;
+}
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /*  SEAL                                                                     */
@@ -236,7 +272,24 @@ export function unseal(opts: UnsealOptions): Buffer {
     // the commitment from the carried epoch and compare to the file's
     // EPOCH-COMMIT field. A leaked token therefore only carries a
     // value useful against THIS file generation.
+    //
+    // Replay check order (SEC-006, spec A-8):
+    //   signature → expiry → epoch-commit → REPLAY check → mark
+    //
+    // Expiry is checked inside verifyUnsealToken (before we reach replay).
+    // This means expired tokens never pollute the replay cache.
     if (file.mode === 'enterprise') {
+      // Resolve replay cache: undefined → default; null → opt-out + warn.
+      const cache: ReplayCache | null =
+        opts.replayCache === null
+          ? null
+          : (opts.replayCache ?? getDefaultReplayCache());
+
+      if (cache === null) {
+        warnReplayCacheDisabledOnce();
+      }
+
+      // Signature + expiry verification (throws TOKEN_EXPIRED / TOKEN_INVALID on failure)
       const result = verifyUnsealToken({
         token: opts.unsealToken!,
         derivedKey,
@@ -244,6 +297,7 @@ export function unseal(opts: UnsealOptions): Buffer {
         challengeBindEnabled: file.challengeBind === 'enabled',
       });
 
+      // Epoch-commit verification (fail-closed; throws DECRYPT_FAILED on mismatch)
       const expectedCommit = hmacSha256(
         derivedKey,
         Buffer.concat([result.enterpriseEpoch, Buffer.from(EPOCH_COMMIT_TAG, 'utf8')]),
@@ -255,6 +309,29 @@ export function unseal(opts: UnsealOptions): Buffer {
         throw SealedEnvError.decryptFailed();
       }
       wipe(result.enterpriseEpoch);
+
+      // Replay check: AFTER signature, expiry, and epoch-commit pass.
+      // Only marks seen if the token fully verified — no cache pollution from
+      // structurally invalid tokens.
+      if (cache !== null) {
+        if (cache.isOpsIdSeen(result.opsId)) {
+          throw new SealedEnvError(
+            'TOKEN_INVALID',
+            'unseal token already used (replay)',
+            { cause: 'replay' },
+          );
+        }
+        try {
+          cache.markOpsIdSeen(result.opsId, result.expEpochSec);
+        } catch {
+          // Cache backend outage — fail closed. Distinct cause for operator dashboards.
+          throw new SealedEnvError(
+            'TOKEN_INVALID',
+            'unseal token replay cache unavailable',
+            { cause: 'replay-cache-unavailable' },
+          );
+        }
+      }
     }
 
     // AAD digest verification (defense in depth: catches metadata tampering
@@ -323,6 +400,8 @@ export function loadSealed(opts: LoadSealedOptions = {}): Record<string, string>
     ...(signingKey && { signingKey }),
     ...(unsealToken && { unsealToken }),
     ...(deployId && { deployId }),
+    // Pass replayCache through (undefined → default; null → opt-out)
+    ...('replayCache' in opts && { replayCache: opts.replayCache }),
   });
 
   try {

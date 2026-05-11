@@ -10,6 +10,60 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.2.0] - 2026-05-10
+
+### Security
+
+- **SEC-006 (Node): Replay cache wired into `loadSealed`/`unseal` by default.**
+  Re-using a token within its TTL is now rejected with `TOKEN_INVALID` (cause: `replay`).
+  A shared module-level `InProcessReplayCache` (10k-entry LRU) is provided automatically —
+  no caller configuration required. Inject a custom `ReplayCache` implementation
+  (e.g. Redis-backed) via `LoadSealedOptions.replayCache` / `UnsealOptions.replayCache`
+  to share replay state across processes. Opt out via `replayCache: null` (emits a
+  one-time stderr warning containing `replay-cache-disabled`).
+
+- **SEC-006 (Java): Replay cache mirrored in Java.** `ReplayCache` interface +
+  `InProcessReplayCache` default (10k-entry bounded LRU backed by `ConcurrentHashMap`).
+  Same fail-closed semantics as Node: cache-backend failure surfaces as `TOKEN_INVALID`
+  with `SealedEnvException.reason() == "replay-cache-unavailable"`. Opt out via
+  `UnsealOptions.replayCache = SealedEnv.REPLAY_CACHE_DISABLED` (emits a one-time
+  `System.err` warning containing `replay-cache-disabled`).
+
+- SEC-009 (CLI): `sealed-env unseal` enforces a 5-attempt / 300-second lockout per master key (fingerprint = sha256(masterKey)[0..16]). Counter persists at `~/.sealed-env-state/unseal-attempts/` with mode 0o600. CI runners with ephemeral filesystems reset per run (intentional).
+
+- **CVE-2026-45091 has been reserved by a CNA** for the JWS-payload
+  TOTP-secret leak that affected `0.1.0-alpha.{1,2,3}` and was
+  patched in alpha.4 on 2026-05-07. The record is currently in the
+  RESERVED state at
+  [cve.org/CVERecord?id=CVE-2026-45091](https://www.cve.org/CVERecord?id=CVE-2026-45091)
+  pending publication of the full description by the assigning CNA;
+  it will appear in NVD shortly thereafter. No code change in this
+  entry — references throughout the repository (README, THREAT_MODEL,
+  Java regression tests, CHANGELOG) updated to cite the official
+  identifier alongside the existing GitHub Security Advisory
+  ([GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)).
+
+### Breaking behavior
+
+- `loadSealed()` now rejects re-used unseal tokens within their TTL by default (replay cache wired). Pass `replayCache: null` to opt out.
+
+### Added
+
+- `ReplayCache` interface (Node + Java) for custom replay-protection
+  backings. `InProcessReplayCache` shipped as the default.
+- `SealedEnvError.cause` (Node) / `SealedEnvException.reason()` (Java) —
+  optional sub-classification for `TOKEN_INVALID` errors.
+
+### Removed
+
+- **Java public API:** `UnsealToken.VerifyInput.isOpsIdSeen(Predicate<String>)` removed.
+  Replay enforcement now lives in `SealedEnv.unseal()` with the `ReplayCache` interface
+  (single source of truth, parity with Node). Audit (SEC-006) confirmed zero real callers —
+  `SealedEnv.unseal()` never wired the predicate. Callers using the 4-arg convenience
+  constructor `VerifyInput(token, derivedKey, deployId, challengeBindEnabled)` are unaffected.
+
+---
+
 ## [0.1.1] — 2026-05-10
 
 ### Security
@@ -54,24 +108,6 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
   temp-write + fsync + rename (SEC-019). A crash mid-write no longer corrupts
   the destination file; the previous content is preserved until the rename
   completes.
-
----
-
-## [Unreleased]
-
-### Security
-
-- **CVE-2026-45091 has been reserved by a CNA** for the JWS-payload
-  TOTP-secret leak that affected `0.1.0-alpha.{1,2,3}` and was
-  patched in alpha.4 on 2026-05-07. The record is currently in the
-  RESERVED state at
-  [cve.org/CVERecord?id=CVE-2026-45091](https://www.cve.org/CVERecord?id=CVE-2026-45091)
-  pending publication of the full description by the assigning CNA;
-  it will appear in NVD shortly thereafter. No code change in this
-  entry — references throughout the repository (README, THREAT_MODEL,
-  Java regression tests, CHANGELOG) updated to cite the official
-  identifier alongside the existing GitHub Security Advisory
-  ([GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)).
 
 ---
 

@@ -35,6 +35,12 @@ import { readKeyFromEnv, readEnvKeyBase32 } from '../utils/io.js';
 import { parseFlags } from '../utils/flags.js';
 import { DEFAULT_SCRYPT_PARAMS } from '../../format/constants.js';
 import type { KdfParams } from '../../core/types.js';
+import {
+  getAttemptState,
+  isLocked,
+  recordFailedAttempt,
+  resetAttempts,
+} from '../utils/rate-limit.js';
 
 export async function unsealCommand(argv: string[]): Promise<void> {
   const { values } = parseFlags(argv, {
@@ -60,9 +66,29 @@ export async function unsealCommand(argv: string[]): Promise<void> {
   if (!/^\d{6}$/.test(code)) {
     throw new SealedEnvError('CONFIG_ERROR', 'TOTP code must be 6 digits');
   }
+
+  // Rate-limit pre-check: reject immediately if master key is currently locked.
+  // The TOTP code is NOT evaluated while locked — no verifyTotp call.
+  const preLockState = getAttemptState(masterKey);
+  if (isLocked(preLockState)) {
+    const lockedUntilIso = new Date(preLockState.lockedUntil!).toISOString();
+    throw new SealedEnvError(
+      'CONFIG_ERROR',
+      `Too many failed unseal attempts. Locked until ${lockedUntilIso}. ` +
+      `If you suspect compromise, rotate via 'sealed-env init --mode enterprise'.`,
+    );
+  }
+
   if (!verifyTotp(totpSecret, code)) {
+    // Record the failure (may set lockedUntil in the file for the next attempt).
+    recordFailedAttempt(masterKey);
+    // Always throw TOKEN_INVALID for the failed attempt itself.
+    // The lockout CONFIG_ERROR is shown on the NEXT attempt via the pre-check above.
     throw new SealedEnvError('TOKEN_INVALID', 'TOTP code invalid (or expired)');
   }
+
+  // Successful TOTP verification — reset the attempt counter.
+  resetAttempts(masterKey);
 
   // Determine salt + KDF params. Priority:
   //   1. --file: parse the .env.sealed and use its real salt + params.
