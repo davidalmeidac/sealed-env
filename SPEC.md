@@ -252,7 +252,357 @@ A correctly implemented reader/writer pair guarantees:
 5. **Forward secrecy on rotation.** After `rotate`, old files cannot be
    decrypted with the new key (and vice versa). Old files should be deleted.
 
-## 11. Implementation conformance test vectors
+## 11. Token format (canonical)
+
+### 11.1 The reader's problem
+
+A developer adopting `sealed-env` lands on this page asking one question:
+
+> "I have a `.env.sealed` in CI. What single value do I paste into a CI
+> secret so my app boots?"
+
+Prior to v1's token format, the answer involved 2-3 separate environment
+variables (`SEALED_ENV_KEY`, `SEALED_ENV_SIGNING_KEY`, optionally
+`SEALED_ENV_TOTP_SECRET`). Operators routinely pasted them in the wrong
+slot, forgot one, or shipped them via different channels and lost
+correlation. The credential interface MUST be one paste, like a Stripe
+`sk_live_*` key — complexity inside, simplicity outside.
+
+The answer for v1 is a single string: `SEALED_ENV_TOKEN=sealed_env_<mode>_<checksum>_<payload>`.
+
+This section is the canonical contract for that string. Node, Java, and
+Rust implementations MUST produce and consume **byte-identical** tokens
+from the same inputs.
+
+### 11.2 Wire shape
+
+```
+sealed_env_<mode>_<checksum>_<payload>
+```
+
+| Component | Bytes | Description |
+|-----------|-------|-------------|
+| `sealed_env_` | 11 ASCII | Literal prefix. Never changes across format versions. Greppable in CI logs. |
+| `<mode>` | 1 ASCII | One of `b`, `t`, `e`, `u`, `d`. See §11.6. |
+| `_` | 1 ASCII | Separator. |
+| `<checksum>` | 4 ASCII | Lowercase hex. See §11.4. |
+| `_` | 1 ASCII | Separator. |
+| `<payload>` | variable | base64url-no-padding of CBOR map. See §11.5. |
+
+The prefix `sealed_env_` is **literal and version-stable**. A future
+format revision will live inside `<mode>` / payload schema, not in the
+prefix. This guarantees that grep rules in CI log scrubbers written in
+2026 still match tokens emitted in 2030.
+
+#### Mode characters
+
+| `<mode>` | Tier | Meaning |
+|----------|------|---------|
+| `b` | A · Root | `basic` vault — master key only |
+| `t` | A · Root | `team` vault — master + signing |
+| `e` | A · Root | `enterprise` vault — master + signing + TOTP secret |
+| `u` | A · Unseal | Re-wrap of the legacy JWS unseal token (see §9) |
+| `d` | B · Deploy | Ephemeral deploy token (see §12) |
+
+Tier A tokens are long-lived secrets that belong in a password manager,
+KMS, or Studio keychain. Tier B tokens are short-lived (TTL ≤ 600s) and
+designed to be pasted into CI per deploy.
+
+### 11.3 Charset and length
+
+- Allowed bytes in the entire token string: `[a-zA-Z0-9_-]`. This is the
+  base64url alphabet plus `_` as a separator. The token survives shell
+  quoting, environment variables, GitHub Actions secret rendering, and
+  URL embedding without escaping.
+- Maximum total length: **512 bytes**. This leaves headroom for the
+  0.4.0 operator-identity extension (Ed25519 pubkey + signature add
+  ~96 bytes) and future fields. Implementations MUST reject tokens
+  longer than 512 bytes before any parsing.
+- Minimum total length: `len("sealed_env_x_xxxx_") + len(shortest payload)`
+  ≈ 30 bytes. A token shorter than this is structurally invalid.
+
+### 11.4 Checksum
+
+The checksum is **typo detection, NOT a security control.** Its only job
+is to fail fast and loud when an operator pastes `sealed_env_t_…` with
+one character corrupted by a shell, a chat client, or a copy-paste error.
+The cryptographic gate that prevents forgery is the Tier B `sig` field
+(§12.5) plus `exp` and optional `nonce` — not the checksum.
+
+#### Formula
+
+```
+checksum_bytes = HMAC-SHA256(
+  key   = "sealed-env:token-checksum:v1",
+  msg   = payload_text                          ; see below
+)[0:2]                                          ; first 2 bytes
+checksum     = lowercase_hex(checksum_bytes)    ; 4 ASCII chars
+```
+
+Where `payload_text` is the **base64url-encoded payload STRING** — the
+exact characters that appear in the token between the last `_` and the
+end of the string. Implementations MUST NOT compute the checksum over
+the raw CBOR bytes; the contract is over the wire-form payload string so
+that a checksum mismatch correlates 1:1 with what the operator visually
+sees.
+
+The HMAC key `"sealed-env:token-checksum:v1"` is a domain-separation
+literal. It is **public**. Its purpose is to prevent collisions with
+HMACs used elsewhere in the protocol (e.g., the Tier B `sig`); it is not
+a secret.
+
+#### Reject behavior
+
+If checksum mismatches, the implementation MUST reject the token
+**before** any base64url decoding or CBOR parsing. The error class is
+`TOKEN_INVALID` with cause `"checksum-mismatch"`. No timing-attack
+discipline is required — this is a typo check.
+
+### 11.5 Payload encoding
+
+```
+payload_text = base64url-no-padding( CBOR( mode_specific_map ) )
+```
+
+CBOR encoding MUST follow RFC 8949 §4.2.1 "Core Deterministic Encoding
+Requirements":
+
+1. Integers use shortest-form representation (no leading zero bytes).
+2. Byte strings use major type 2 (no indefinite-length).
+3. Text strings use major type 3 (no indefinite-length).
+4. Maps use major type 5 with definite length (no indefinite-length).
+5. Map keys are sorted by **bytewise lexicographic order of their
+   canonical CBOR encoding**.
+6. No tag wrappers unless explicitly required (none are in this version).
+
+The deterministic ordering rule is the load-bearing one. Two
+implementations encoding the same map MUST produce byte-identical CBOR.
+
+#### Sort order for text-string keys (practical rule)
+
+A CBOR text-string of length `n < 24` is encoded as `0x60+n` followed by
+the UTF-8 bytes. Therefore, when all keys are short text strings:
+
+1. **Shorter keys sort first.** A 2-char key precedes a 3-char key
+   because `0x62 < 0x63`.
+2. Within the same length, sort lexicographically on the UTF-8 bytes.
+
+Examples:
+
+```
+"m"  (0x61 0x6d) < "s" (0x61 0x73) < "t" (0x61 0x74)
+"ek" (length 2)
+  < "exp", "sig" (length 3, "exp" < "sig" because 'e' < 's')
+  < "nonce"    (length 5)
+  < "vault_id" (length 8)
+```
+
+For text strings of length ≥ 24, the prefix becomes `0x78 <len>`; the
+"shorter first" rule still holds. This format version uses no keys with
+length ≥ 24.
+
+### 11.6 Per-mode payload schemas
+
+All keys are text strings. All cryptographic material is encoded as
+byte strings (major type 2), never hex or base64.
+
+#### Mode `b` — basic
+
+```cbor
+{
+  "m": <bstr 32>      ; master_key
+}
+```
+
+Canonical key order: `m`.
+
+#### Mode `t` — team
+
+```cbor
+{
+  "m": <bstr 32>,     ; master_key
+  "s": <bstr 32>      ; signing_key
+}
+```
+
+Canonical key order: `m, s` (both length 1; `m` < `s`).
+
+#### Mode `e` — enterprise
+
+```cbor
+{
+  "m": <bstr 32>,     ; master_key
+  "s": <bstr 32>,     ; signing_key
+  "t": <bstr 20>      ; totp_secret (RFC 6238)
+}
+```
+
+Canonical key order: `m, s, t`.
+
+#### Mode `u` — unseal
+
+A wire-form re-wrap of the legacy JWS Compact unseal token described in
+§9. The CBOR map carries the same payload fields plus the detached
+signature as a separate byte-string field. Reading and writing this mode
+is a non-breaking translation: a `u`-mode token can be losslessly
+serialized back to the JWS Compact form for legacy verifiers, and vice
+versa.
+
+```cbor
+{
+  "iss":       <tstr>,     ; "sealed-env-cli"
+  "iat":       <uint>,     ; unix seconds
+  "exp":       <uint>,     ; unix seconds
+  "epoch":     <tstr>,     ; standard-base64 of 32-byte enterprise_epoch
+                           ; (same encoding as the JWS payload field, NOT base64url)
+  "deploy_id": <tstr | null>,
+  "ops_id":    <tstr>,     ; UUID v4
+  "sig":       <bstr 32>   ; HMAC-SHA256(derived_key, base64url(header)+"."+base64url(payload))
+                           ; recomputed when re-wrapping
+}
+```
+
+Canonical key order per §11.5. Lengths are 3 (`iat`, `exp`, `iss`,
+`sig`), 5 (`epoch`), 6 (`ops_id`), 9 (`deploy_id`). Within length 3:
+`e` (0x65) < `i` (0x69) < `s` (0x73), and `iat` < `iss` lexicographically.
+Final order: **exp, iat, iss, sig, epoch, ops_id, deploy_id**.
+
+Implementations MUST NOT use the JWT `alg=none` shortcut. The `sig` field
+is mandatory and verified per §9.
+
+#### Mode `d` — deploy (Tier B)
+
+See §12.5 for the full deploy-mode contract. The CBOR map is:
+
+```cbor
+{
+  "ek":       <bstr 32>,   ; ephemeral derived key (= derived_key, see §12.5)
+  "exp":      <uint>,      ; unix seconds — token expiry
+  "sig":      <bstr 32>,   ; HMAC-SHA256 over payload-without-sig (see §12.5)
+  "nonce":    <bstr 16>,   ; replay protection (always present)
+  "vault_id": <bstr 32>    ; SHA-256("sealed-env:vault-id:v1" || salt), see §12.4
+}
+```
+
+Canonical key order: **ek, exp, sig, nonce, vault_id**.
+
+Derivation: `ek` is length 2, all others ≥ 3, so `ek` is first. Within
+length-3 keys `exp` < `sig` (`e` 0x65 < `s` 0x73). Then `nonce` (5) and
+`vault_id` (8). Final order matches.
+
+### 11.7 Parser algorithm
+
+A conformant reader MUST execute the steps in this exact order. Each
+step has a single, named reject point. The reject point determines the
+error class surfaced to the caller.
+
+```
+INPUT: token (UTF-8 bytes)
+
+1. len(token) ≤ 512 ............................. else TOKEN_INVALID(too-long)
+2. token starts with "sealed_env_" .............. else TOKEN_INVALID(bad-prefix)
+3. every byte ∈ [a-zA-Z0-9_-] ................... else TOKEN_INVALID(bad-charset)
+4. split on "_" → ["sealed","env",mode,cksum,payload_text]
+   ............................................. else TOKEN_INVALID(bad-shape)
+5. mode ∈ {"b","t","e","u","d"} ................. else TOKEN_INVALID(bad-mode)
+6. len(cksum)==4 ∧ cksum matches §11.4 .......... else TOKEN_INVALID(checksum-mismatch)
+7. cbor_bytes = base64url-decode(payload_text) .. else TOKEN_INVALID(bad-base64)
+8. map = cbor-decode(cbor_bytes), deterministic . else TOKEN_INVALID(bad-cbor)
+9. validate map against mode schema (§11.6) ..... else TOKEN_INVALID(bad-payload)
+10. mode == "d" → §12.7 verify procedure
+    mode == "u" → §9 verify procedure
+    mode ∈ {b,t,e} → use keys to decrypt .env.sealed per §7
+```
+
+The single user-facing error message remains the §7 rule:
+`"sealed-env: file is corrupted, tampered, or wrong key"`. The
+fine-grained `cause` codes above are for telemetry and operator
+debugging only — they MUST NOT be exposed in untrusted contexts.
+
+Step 4 splits on `_` from the left and stops after the first 5 fields:
+the payload alphabet is base64url which uses `-` and never `_`, so the
+`_` separator parsing is unambiguous.
+
+### 11.8 Forward compatibility
+
+Readers MUST silently ignore **unknown CBOR map keys** in the payload.
+A future version may add operator-identity (`signer_id`, `signer_sig`)
+or workload-identity (`oidc_aud`) fields; existing readers parse them
+into "the rest" and continue with the keys they understand.
+
+What forward-compat does NOT cover:
+
+- A new `<mode>` character. New modes require a reader upgrade. Tokens
+  with unknown modes are rejected at step 5 of §11.7.
+- A breaking change to an existing key's type or semantics. This would
+  ship as a new mode character, not a key reinterpretation.
+- The wire prefix `sealed_env_`. That is permanent.
+
+### 11.9 Backward compatibility
+
+Implementations MUST continue to read vaults whose credentials are
+delivered via the legacy environment variables:
+
+| Legacy env var | Vault mode | Status |
+|----------------|------------|--------|
+| `SEALED_ENV_KEY` | basic, team, enterprise | DEPRECATED — supported through 0.x |
+| `SEALED_ENV_SIGNING_KEY` | team, enterprise | DEPRECATED — supported through 0.x |
+| `SEALED_ENV_TOTP_SECRET` | enterprise | DEPRECATED — supported through 0.x |
+| `SEALED_ENV_UNSEAL_TOKEN` | enterprise (unseal) | DEPRECATED — supported through 0.x |
+
+Precedence rules:
+
+1. If `SEALED_ENV_TOKEN` is set, parse it per §11.7. Use its keys. Ignore
+   any legacy variables present in the environment.
+2. Else if any legacy variable is set, use the legacy flow. Emit a
+   **one-time stderr warning** containing the literal substring
+   `"legacy-credential-format"` plus a link to the `sealed-env
+   migrate-token` command.
+3. Else fail with a clear "no credentials provided" message that
+   mentions `SEALED_ENV_TOKEN`.
+
+The legacy path is **scheduled for removal in 1.0.0**. The 0.x line
+honors it. No new features land in the legacy path.
+
+### 11.10 Test vectors
+
+The byte-identical fixtures for §11 live at
+`test-vectors/v1/credential-modernization-*.json`. Each fixture file is
+self-describing (see its schema below) and references the SPEC
+subsection it exercises. The fixture suite covers every reject point in
+§11.7 plus the happy path for every mode.
+
+#### 11.10.1 Fixture schema
+
+```jsonc
+{
+  "name": "<filename without .json>",
+  "purpose": "<one-line description>",
+  "spec_section": "§11.x or §12.x",
+  "vault": {
+    "salt_hex": "<32 hex>",
+    "master_key_hex": "<64 hex>",
+    "signing_key_hex": "<64 hex, omit for basic>",
+    "totp_secret_hex": "<40 hex, omit for non-enterprise>",
+    "serialized": "<full .env.sealed contents or reference>"
+  },
+  "token": "<sealed_env_*_*_* | null>",
+  "config_file_contents": "<.sealed-env.config.json contents | null>",
+  "expected": {
+    "result": "decrypt_ok | reject_pre_decrypt | reject_sig_fail |
+               reject_vault_mismatch | reject_expired | reject_replay |
+               parse_ok_ignore_unknown | decrypt_ok_with_warning",
+    "plaintext_hex": "<hex if decrypt_ok>",
+    "error_class": "<TOKEN_INVALID | TOKEN_EXPIRED | CONFIG_ERROR | ...>",
+    "error_cause": "<specific cause from §11.7>",
+    "warning_substring": "<for legacy-still-works>"
+  }
+}
+```
+
+The full fixture roster is enumerated in §12.10.
+
+## 13. Implementation conformance test vectors
 
 A reference set of test vectors lives in `/test-vectors/v1/` (separate
 directory in the repo). Each vector contains:
@@ -263,7 +613,7 @@ directory in the repo). Each vector contains:
 
 **Both Node and Java implementations MUST pass all vectors before release.**
 
-## 12. Versioning
+## 14. Versioning
 
 This is `SEALED-ENV-V1`. Future versions:
 
@@ -271,7 +621,7 @@ This is `SEALED-ENV-V1`. Future versions:
   `V1` MUST refuse with `"sealed-env: file format too new, upgrade your library"`.
 - `V1` writers MUST NOT emit fields not specified here, even if known.
 
-## 13. Out of scope (this version)
+## 15. Out of scope (this version)
 
 - Streaming encryption (entire file is encrypted/decrypted in one pass)
 - Multi-recipient encryption (use age or PGP for that use case)
@@ -279,7 +629,7 @@ This is `SEALED-ENV-V1`. Future versions:
 - Hardware-backed keys (planned for v2)
 - Quantum-resistant primitives (planned for v3 when standards stabilize)
 
-## 14. References
+## 16. References
 
 - [RFC 5116](https://www.rfc-editor.org/rfc/rfc5116) — AEAD interface
 - [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869) — HKDF
