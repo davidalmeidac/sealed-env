@@ -439,14 +439,20 @@ Canonical key order: `m, s` (both length 1; `m` < `s`).
 
 Canonical key order: `m, s, t`.
 
-#### Mode `u` — unseal
+#### Mode `u` — unseal (legacy-compat wrap)
 
 A wire-form re-wrap of the legacy JWS Compact unseal token described in
-§9. The CBOR map carries the same payload fields plus the detached
-signature as a separate byte-string field. Reading and writing this mode
-is a non-breaking translation: a `u`-mode token can be losslessly
-serialized back to the JWS Compact form for legacy verifiers, and vice
-versa.
+§9. **Its purpose is migration, not new behavior.** The CBOR map carries
+the same payload fields plus the detached signature as a separate
+byte-string field. Reading and writing this mode is a non-breaking
+translation: a `u`-mode token can be losslessly serialized back to the
+JWS Compact form for legacy verifiers, and vice versa. Stacks that
+already accept the §9 JWS form gain support for the unified token
+envelope without changing their unseal-token verification logic — they
+unwrap the CBOR, reconstruct the equivalent JWS Compact form, and
+delegate to existing code. New deployments SHOULD prefer mode `d`
+(§11.6, §12.5) instead, which carries strict TTL + sig + nonce
+binding from the outset.
 
 ```cbor
 {
@@ -870,6 +876,55 @@ today (`SEALED_ENV_KEY` or, post-§11, the `m` field of a Tier A
 unavailable (workload-identity scenario), the master key arrives via the
 minter service per §12.9.
 
+#### Verifier capability model — honest framing for 0.3.0
+
+The reader at this point may notice an apparent tension with the
+ergonomic story: if the Tier B verifier still needs the master key in
+process memory to check `sig`, how is the deploy token meaningfully
+"smaller blast radius" than a long-lived Tier A token in CI?
+
+This is a deliberate scoping decision for `0.3.0`, recorded here so a
+future maintainer or contributor does not file it as a gap. The honest
+answer is **a two-step migration**:
+
+1. **`0.3.0` brings stricter defaults and smaller blast radius for
+   *operator-driven* deploys.** Enterprise vaults force `deploy_mode:
+   ephemeral`; basic/team can opt in. The deploy token's TTL (default
+   `60s`, max `600s`) bounds the window during which a captured token
+   grants decrypts, even if the CI runner that holds the master is
+   compromised concurrently. That window collapses from "hours or days
+   until the operator notices and rotates" (today's status quo, where
+   `SEALED_ENV_KEY` is a long-lived CI secret) to "seconds, then the
+   token is dead by wall-clock." The cryptographic improvement is
+   real even with the master still resident in the verifier process.
+2. **`1.1` (planned, sketched in §12.9) brings identity-aware deploys.**
+   A minter service holds the master key in cloud KMS / HSM, validates
+   the calling identity via OIDC (GitHub Actions, OIDC-aware CI), and
+   mints Tier B tokens scoped to the validated identity + a short TTL.
+   In this mode, the CI runner never holds the master — only ever a
+   fresh Tier B. The current SPEC reserves `deploy_mode:
+   "workload-identity"` as a sentinel that readers MUST reject with
+   `CONFIG_ERROR("workload-identity-not-implemented")` until the minter
+   contract is specified.
+
+The composition matters. `0.3.0`'s strict defaults narrow the attack
+window from days to seconds for the common operator-driven deploy. `1.1`'s
+minter then removes the master from the CI runner entirely for teams that
+operate at a scale where that step pays for itself. Shipping the former
+before the latter is a cost-balanced sequencing call, not an
+under-specification: the minter service requires identity infrastructure
+that is out of scope for the core SPEC and belongs in a separate
+release.
+
+If you read the COORDINATION proposal that preceded this section and
+expected `0.3.0` to deliver "Tier A NUNCA en CI", note that the SPEC
+intentionally tightens the wording: Tier A still arrives in the CI
+process for the sig check, but it arrives **alongside** a per-deploy
+Tier B with a 60-second TTL. The CI runner's compromise window is the
+Tier B TTL, not the lifetime of the Tier A token. Calling that
+"smaller blast radius" is accurate; calling it "no Tier A in CI" would
+not be, and we choose to not lie in the SPEC.
+
 ### 12.8 Replay protection
 
 `nonce` is **always** on the wire. Whether replay is enforced depends
@@ -945,6 +1000,7 @@ schema documented in §11.10.1. The roster:
 | `credential-modernization-basic-valid.json` | `decrypt_ok` | §11.6 mode `b`, §11.7 happy path |
 | `credential-modernization-team-valid.json` | `decrypt_ok` | §11.6 mode `t`, §11.7 happy path |
 | `credential-modernization-enterprise-valid.json` | `decrypt_ok` | §11.6 mode `e`, Tier A unlock |
+| `credential-modernization-unseal-valid.json` | `decrypt_ok` | §11.6 mode `u`, legacy-compat wrap |
 | `credential-modernization-tier-b-deploy-valid.json` | `decrypt_ok` | §12.5–§12.7 happy path |
 | `credential-modernization-wrong-checksum.json` | `reject_pre_decrypt` | §11.4 typo detection |
 | `credential-modernization-tampered-payload.json` | `reject_sig_fail` | §12.5 / §12.7 step 8 |
@@ -966,10 +1022,19 @@ All fixtures use FIXED key material so reruns are byte-stable:
 | Tier B `exp` (expired) | `1000000000` (2001-09-09) |
 | Tier B `nonce` | `11` × 16 |
 
+| Tier B / u-mode `kdf` | `scrypt` |
+| Tier B / u-mode `kdf_params` | `{ N: 131072, r: 8, p: 1 }` (matches 0.1.1 default, SEC-002 OWASP 2024 floor) |
+| u-mode `iat` | `1767225600` (2026-01-01T00:00:00Z) |
+| u-mode `exp` | `4102444800` (2100-01-01T00:00:00Z, so the vector remains testable indefinitely) |
+| u-mode `ops_id` | `fixture-u-mode-ops-id-v1` |
+
 The generator script `node/scripts/gen-credential-modernization-vectors.mjs`
-produces all 11 fixtures deterministically. It contains its own minimal
+produces all 12 fixtures deterministically. It contains its own minimal
 CBOR encoder (no npm dependency) covering the major types used here and
-asserts byte-equality across a double-encode pass before writing.
+asserts byte-equality across a double-encode pass before writing. The
+generator also invokes `crypto.scryptSync` with the pinned params above
+to derive Tier B's `ek` field — runtime stacks deriving `ek` from the
+same `master_key + salt + kdf_params` will produce byte-identical bytes.
 
 ## 13. Implementation conformance test vectors
 
