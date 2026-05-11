@@ -19,7 +19,12 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
-## [0.2.0] - 2026-05-10
+## [0.2.0] — Securitas — 2026-05-10
+
+> _Codename_: **Securitas** — Roman goddess of state security and stability.
+> First in the sigillum release line: Latin virtues mapping each minor
+> release to the property it delivers. This one is hardening: replay
+> cache, TOTP rate limit, CVE-2026-45091 fix.
 
 ### Security
 
