@@ -121,7 +121,6 @@ const TOKEN_CHECKSUM_KEY = Buffer.from('sealed-env:token-checksum:v1', 'utf8');
 const VAULT_ID_PREFIX = Buffer.from('sealed-env:vault-id:v1', 'utf8');
 const DEPLOY_SIG_INFO = Buffer.from('sealed-env:deploy-sig:v1', 'utf8');
 const EPOCH_INFO = Buffer.from('epoch-v1', 'utf8');
-const UNSEAL_TOKEN_KEY_INFO = Buffer.from('sealed-env:unseal-token-key:v1', 'utf8');
 
 // scrypt params — match sealed-env 0.1.1 default (SEC-002 OWASP 2024 floor).
 // Fixtures pin these so any stack can re-derive ek byte-identically.
@@ -218,7 +217,6 @@ function buildTierBToken({ masterKey, salt, exp, nonce, overrideVaultId }) {
 // byte string. Reading and writing is lossless (§11.6).
 function buildUnsealToken({
   masterKey,
-  signingKey,
   totpSecret,
   salt,
   iss = 'sealed-env-cli',
@@ -229,15 +227,15 @@ function buildUnsealToken({
 }) {
   // enterprise_epoch is bound to (totpSecret, salt) per SPEC §9.
   const enterpriseEpoch = hmacSha256(totpSecret, Buffer.concat([salt, EPOCH_INFO]));
-  // The legacy JWS unseal-token-key is HKDF(derived_key, ...). We use the
-  // signingKey as an additional ingredient to bind team/enterprise scope.
-  const derivedKey = scryptDerive(masterKey, salt);
-  const tokenKey = hkdfSha256(
-    Buffer.concat([derivedKey, signingKey]),
-    salt,
-    UNSEAL_TOKEN_KEY_INFO,
-    32,
-  );
+  // The legacy JWS unseal-token-key is `derived_key` directly, per SPEC §11.6
+  // u-mode ("HMAC-SHA256(derived_key, base64url(header)+'.'+base64url(payload))")
+  // and verified by node/src/totp/unsealToken.ts:98 + :139. A previous draft of
+  // this generator HKDF'd derivedKey||signingKey into a separate tokenKey; that
+  // was a fabrication, not the contract. signingKey participates in the wider
+  // sealed-file HMAC (SPEC §6) but does NOT enter the unseal-token signing
+  // input. (Use raw derived_key here, not a fresh HMAC — the runtime verifier
+  // computes `hmacSha256(derivedKey, signingInput)` so this side must match.)
+  const tokenKey = scryptDerive(masterKey, salt);
   // Construct the JWS header + payload that the legacy verifier would
   // sign. Sig is HMAC over base64url(header)+"."+base64url(payload).
   const header = { alg: 'HS256', typ: 'sealed-env-unseal/v1' };
@@ -330,7 +328,6 @@ function runSelfChecks() {
   // 5. u-mode token mint is deterministic with fixed inputs (no Date.now()).
   const u1 = buildUnsealToken({
     masterKey: MASTER_KEY,
-    signingKey: SIGNING_KEY,
     totpSecret: TOTP_SECRET,
     salt: SALT,
     iat: 1767225600,
@@ -340,7 +337,6 @@ function runSelfChecks() {
   });
   const u2 = buildUnsealToken({
     masterKey: MASTER_KEY,
-    signingKey: SIGNING_KEY,
     totpSecret: TOTP_SECRET,
     salt: SALT,
     iat: 1767225600,
@@ -479,7 +475,6 @@ function unsealValid() {
   // iat/exp/ops_id are fixed so the token doesn't depend on Date.now().
   const token = buildUnsealToken({
     masterKey: MASTER_KEY,
-    signingKey: SIGNING_KEY,
     totpSecret: TOTP_SECRET,
     salt: SALT,
     iat: 1767225600, // 2026-01-01T00:00:00Z
