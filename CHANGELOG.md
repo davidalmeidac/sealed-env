@@ -45,17 +45,17 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 - SEC-009 (CLI): `sealed-env unseal` enforces a 5-attempt / 300-second lockout per master key (fingerprint = sha256(masterKey)[0..16]). Counter persists at `~/.sealed-env-state/unseal-attempts/` with mode 0o600. CI runners with ephemeral filesystems reset per run (intentional).
 
-- **CVE-2026-45091 has been reserved by a CNA** for the JWS-payload
-  TOTP-secret leak that affected `0.1.0-alpha.{1,2,3}` and was
-  patched in alpha.4 on 2026-05-07. The record is currently in the
-  RESERVED state at
-  [cve.org/CVERecord?id=CVE-2026-45091](https://www.cve.org/CVERecord?id=CVE-2026-45091)
-  pending publication of the full description by the assigning CNA;
-  it will appear in NVD shortly thereafter. No code change in this
-  entry — references throughout the repository (README, THREAT_MODEL,
-  Java regression tests, CHANGELOG) updated to cite the official
-  identifier alongside the existing GitHub Security Advisory
-  ([GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)).
+- **CVE-2026-45091 is now PUBLISHED** (cve.org + NVD, 2026-05-12) for
+  the JWS-payload TOTP-secret leak that affected `0.1.0-alpha.{1,2,3}`
+  and was patched in alpha.4 on 2026-05-07. Final CVSS v3.1 score
+  **9.1 (Critical)** — vector
+  `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N` — assigned by GitHub
+  Security Lab as the CNA. CWE-200 (Exposure of Sensitive Information)
+  + CWE-522 (Insufficiently Protected Credentials).
+  Records:
+  - [cve.org/CVERecord?id=CVE-2026-45091](https://www.cve.org/CVERecord?id=CVE-2026-45091)
+  - [nvd.nist.gov/vuln/detail/CVE-2026-45091](https://nvd.nist.gov/vuln/detail/CVE-2026-45091)
+  - [GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)
 
 ### Breaking behavior
 
@@ -496,7 +496,7 @@ and vice versa.
 ## [0.1.0-alpha.4] — 2026-05-07
 
 > **🚨 SECURITY: [CVE-2026-45091](https://www.cve.org/CVERecord?id=CVE-2026-45091)
-> (RESERVED, full record pending CNA publication; advisory:
+> (CVSS 9.1 Critical, published 2026-05-12; advisory:
 > [GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)).
 > This release fixes a critical issue in `enterprise` mode. Prior versions
 > (alpha.1, alpha.2, alpha.3) embedded the operator's TOTP secret in the JWS

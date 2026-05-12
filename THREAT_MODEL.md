@@ -78,8 +78,8 @@ The reviewer found it in 5 minutes by base32-encoding the bytes from
 
 Affected versions are deprecated. Tracked as
 **[CVE-2026-45091](https://www.cve.org/CVERecord?id=CVE-2026-45091)**
-(currently RESERVED, awaiting publication of the full record by the
-assigning CNA) and
+(CVSS 9.1 Critical, published 2026-05-12 in
+[NVD](https://nvd.nist.gov/vuln/detail/CVE-2026-45091)) and
 [GHSA-x3r2-fj3r-g5mv](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv).
 
 **What it teaches us (and what we now do):**
