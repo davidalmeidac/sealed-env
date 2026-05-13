@@ -76,9 +76,9 @@
     "directory": "node"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.18.0",
     "@types/qrcode-terminal": "^0.12.2",
-    "typescript": "^5.6.0"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "qrcode-terminal": "^0.12.0"
