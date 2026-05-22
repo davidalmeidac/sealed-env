@@ -17,6 +17,14 @@
 - Used stolen npm tokens to publish more infected packages → exponential spread
 - Final tally: **25,000+ compromised repos**, hundreds of orgs
 
+**CVE classification:** The TanStack chain (May 11, 2026) was assigned
+**CVE-2026-45321** by MITRE, with a CVSS 3.1 score of **9.6 (Critical)**.
+This is the official externally-assigned CVE for the Mini Shai-Hulud
+variant and is the citation that downstream tools (Tenable, Snyk,
+GitHub Advisory) reference. Note: this is unrelated to **CVE-2026-45091**,
+which is our own self-disclosed vulnerability in `sealed-env` enterprise
+mode (TOTP secret in unseal token payload, patched in 0.1.0-alpha.4).
+
 **Phase 2 (May 12, 2026 — TeamPCP open-sources the framework):**
 - TeamPCP publishes the full Shai-Hulud framework on GitHub under MIT license
 - Headline: *"Shai-Hulud: Open Sourcing The Carnage"*

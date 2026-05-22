@@ -92,6 +92,28 @@ pipeline is fully compromised, attackers cannot decrypt without the operator's p
    └─────────────────────────┘         └─────────────────────────┘
 ```
 
+## Verify the install
+
+From `0.2.1` onwards, every npm release ships with **SLSA Build Level 3
+provenance** signed via Sigstore through GitHub Actions trusted
+publishing. After installing, you can confirm that the tarball was
+built from the source we publish (not from a compromised pipeline):
+
+```bash
+npm audit signatures sealed-env
+```
+
+Expect output that includes `verified` for `sealed-env` with a
+signature link to a Sigstore transparency log entry. If the command
+reports anything else, **do not run sealed-env** — open an issue first.
+
+This is a real check, not a marketing pixel: the TanStack supply-chain
+attack of May 2026 published malicious packages with valid-looking
+SLSA Build Level 3 provenance, so provenance alone is insufficient.
+But combined with version pinning + release-age cooldowns (`pnpm 11
+minimumReleaseAge: 24h` or `yarn npmMinimalAgeGate: 3d`), it's a
+meaningful defensive layer.
+
 ## 30-second tour (Node)
 
 ```bash
