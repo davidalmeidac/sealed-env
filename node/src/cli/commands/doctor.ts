@@ -33,6 +33,12 @@ import { shellHintFor } from '../utils/io.js';
 
 interface CheckResult {
   ok: boolean;
+  /**
+   * `true` for advisory checks that should be visible but don't fail
+   * the command. Used by the hardening checks (Shai-Hulud posture)
+   * where missing config is worth warning but not blocking.
+   */
+  warn?: boolean;
   label: string;
   detail: string;
 }
@@ -116,22 +122,40 @@ export function doctorCommand(argv: string[]): void {
     }
   }
 
+  // Section 3: hardening posture (Shai-Hulud defense)
+  // These are advisory — they don't fail doctor, but they're visible.
+  // See: /threat-research/analysis/shai-hulud-defense.md
+  checks.push(checkPlaintextKeyExposure());
+  checks.push(checkIdeBackdoorHooks());
+  checks.push(checkCiTokenTtl());
+
   // Render the report
   const longest = Math.max(...checks.map((c) => c.label.length));
   for (const c of checks) {
-    const mark = c.ok ? '✓' : '✗';
+    const mark = c.warn ? '!' : c.ok ? '✓' : '✗';
     process.stdout.write(`  [${mark}] ${c.label.padEnd(longest)}  ${c.detail}\n`);
   }
   process.stdout.write('\n');
 
   const failed = checks.filter((c) => !c.ok);
-  if (failed.length === 0) {
+  const warnings = checks.filter((c) => c.warn);
+  if (failed.length === 0 && warnings.length === 0) {
     process.stdout.write('All checks passed. Setup looks healthy.\n');
+  } else if (failed.length === 0) {
+    process.stdout.write(
+      `${warnings.length} hardening recommendation${warnings.length === 1 ? '' : 's'} above. ` +
+        'No defects detected; the items marked [!] are opt-in improvements.\n',
+    );
   } else {
     process.stdout.write(
       `${failed.length} check${failed.length === 1 ? '' : 's'} failed. ` +
         'Address the items marked ✗ above.\n',
     );
+    if (warnings.length > 0) {
+      process.stdout.write(
+        `${warnings.length} hardening recommendation${warnings.length === 1 ? '' : 's'} also listed.\n`,
+      );
+    }
     process.exitCode = 1;
   }
 }
@@ -190,4 +214,193 @@ function readKey(varName: string): Buffer {
   if (/^[0-9a-fA-F]+$/.test(v) && v.length % 2 === 0) return Buffer.from(v, 'hex');
   if (/^[A-Za-z0-9+/]+={0,2}$/.test(v)) return Buffer.from(v, 'base64');
   throw new SealedEnvError('CONFIG_ERROR', `${varName} must be hex or base64`);
+}
+
+// ---------------------------------------------------------------
+// Hardening checks (Shai-Hulud defense posture)
+// ---------------------------------------------------------------
+//
+// These checks don't validate sealed-env's correctness — they validate
+// the operator's *hygiene* against credential-harvesting malware. Each
+// is advisory (warn, not fail) because operators on a single dev machine
+// who accept the risk should still be able to use sealed-env.
+//
+// See /threat-research/analysis/shai-hulud-defense.md for the full
+// per-module mapping of what these checks defend against.
+
+const SHAI_HULUD_DOC =
+  'https://github.com/davidalmeidac/sealed-env/blob/main/threat-research/analysis/shai-hulud-defense.md';
+
+/**
+ * Check 1: master key in `.env.local` plaintext.
+ *
+ * The most impactful Shai-Hulud mitigation for sealed-env users is
+ * `keychain push` — moving the master key out of `.env.local` and into
+ * the OS keychain. This check reads `.env.local` from cwd (no parse, no
+ * env load — purely reading the file's first 64KB for the literal
+ * `SEALED_ENV_KEY=<hex>` pattern) and warns if found.
+ *
+ * False-negative cases are acceptable: if the operator points us at the
+ * file via cwd outside their actual repo, we miss it. False positives
+ * are minimized: we require the exact hex form (placeholders like
+ * `SEALED_ENV_KEY=<your_key>` don't match).
+ */
+function checkPlaintextKeyExposure(): CheckResult {
+  const candidates = ['.env.local', '.env'];
+  const findings: string[] = [];
+
+  for (const name of candidates) {
+    const path = resolve(name);
+    if (!existsSync(path)) continue;
+    let head: string;
+    try {
+      head = readFileSync(path, 'utf8').slice(0, 64 * 1024);
+    } catch {
+      continue;
+    }
+    // Match the same shape as the SE-K1/K2/K3 patterns we ship for
+    // gitleaks (SECRET-PATTERNS.md). Keep these in sync.
+    const masterKey =
+      /SEALED_ENV_KEY\s*[=:]\s*["']?[0-9a-fA-F]{64}(?![0-9a-fA-F])/.test(head);
+    const signingKey =
+      /SEALED_ENV_SIGNING_KEY\s*[=:]\s*["']?[0-9a-fA-F]{64}(?![0-9a-fA-F])/.test(head);
+    const totp =
+      /SEALED_ENV_TOTP_SECRET\s*[=:]\s*["']?[A-Z2-7]{16,64}(?![A-Z2-7])/.test(head);
+    if (masterKey || signingKey || totp) {
+      const found = [
+        masterKey ? 'master key' : null,
+        signingKey ? 'signing key' : null,
+        totp ? 'TOTP secret' : null,
+      ]
+        .filter(Boolean)
+        .join(' + ');
+      findings.push(`${name} (${found})`);
+    }
+  }
+
+  if (findings.length === 0) {
+    return {
+      ok: true,
+      label: 'plaintext key exposure',
+      detail: 'no sealed-env secrets in .env / .env.local (or files absent)',
+    };
+  }
+
+  return {
+    ok: true,
+    warn: true,
+    label: 'plaintext key exposure',
+    detail:
+      `secrets in plaintext: ${findings.join(', ')}. ` +
+      `Run \`sealed-env keychain push\` to move them to the OS keychain. ` +
+      `See ${SHAI_HULUD_DOC}`,
+  };
+}
+
+/**
+ * Check 2: IDE backdoor hooks.
+ *
+ * The Shai-Hulud framework installs `runOn: folderOpen` in
+ * `.vscode/tasks.json` and `SessionStart` hooks in `.claude/settings.json`
+ * to gain persistence in any repo the attacker can write to. This check
+ * detects either pattern in cwd. Both are legitimate features used by
+ * non-malicious tooling, so this is a warning, not a failure — the
+ * operator must inspect the actual content.
+ */
+function checkIdeBackdoorHooks(): CheckResult {
+  const findings: string[] = [];
+
+  // .vscode/tasks.json with runOn: folderOpen
+  const vscodeTasks = resolve('.vscode/tasks.json');
+  if (existsSync(vscodeTasks)) {
+    try {
+      const text = readFileSync(vscodeTasks, 'utf8');
+      // Match the runOn property regardless of whitespace / quoting style.
+      if (/"runOn"\s*:\s*"folderOpen"/.test(text)) {
+        findings.push('.vscode/tasks.json (runOn: folderOpen)');
+      }
+    } catch {
+      // unreadable — skip silently
+    }
+  }
+
+  // .claude/settings.json with a SessionStart hook
+  const claudeSettings = resolve('.claude/settings.json');
+  if (existsSync(claudeSettings)) {
+    try {
+      const text = readFileSync(claudeSettings, 'utf8');
+      if (/"SessionStart"/.test(text) && /"hooks"/.test(text)) {
+        findings.push('.claude/settings.json (SessionStart hook)');
+      }
+    } catch {
+      // unreadable — skip silently
+    }
+  }
+
+  // Suspicious loader filenames the framework drops
+  for (const dropFile of ['.vscode/setup.mjs', '.claude/setup.mjs']) {
+    if (existsSync(resolve(dropFile))) {
+      findings.push(`${dropFile} (suspicious loader filename)`);
+    }
+  }
+
+  if (findings.length === 0) {
+    return {
+      ok: true,
+      label: 'IDE backdoor hooks',
+      detail: 'no auto-execute IDE hooks found in cwd',
+    };
+  }
+
+  return {
+    ok: true,
+    warn: true,
+    label: 'IDE backdoor hooks',
+    detail:
+      `auto-execute hooks in cwd: ${findings.join('; ')}. ` +
+      `Inspect manually — legitimate tooling can use these, but the ` +
+      `Shai-Hulud framework also uses them for persistence. See ${SHAI_HULUD_DOC}`,
+  };
+}
+
+/**
+ * Check 3: CI context — TTL guidance for unseal tokens.
+ *
+ * GitHub Actions runners can be scraped for in-memory secrets via
+ * `/proc/<pid>/mem`. sealed-env can't prevent the scrape, but a short
+ * TTL on unseal tokens (≤ 30s) materially reduces the window during
+ * which a scraped token is useful. This check fires only when running
+ * inside GitHub Actions; otherwise it's silent.
+ */
+function checkCiTokenTtl(): CheckResult {
+  const inCi = process.env['GITHUB_ACTIONS'] === 'true';
+  if (!inCi) {
+    return {
+      ok: true,
+      label: 'CI hardening',
+      detail: 'not in GitHub Actions — check skipped',
+    };
+  }
+
+  const token = process.env['SEALED_ENV_UNSEAL_TOKEN'];
+  if (!token) {
+    return {
+      ok: true,
+      label: 'CI hardening',
+      detail: 'GitHub Actions detected; no unseal token in env (basic/team mode)',
+    };
+  }
+
+  // We can't read the TTL without parsing the JWT, and we don't want
+  // to add JWT parsing to doctor for one advisory check. Just remind
+  // the operator of the policy.
+  return {
+    ok: true,
+    warn: true,
+    label: 'CI hardening',
+    detail:
+      `GitHub Actions + unseal token detected. Recommended: TTL ≤ 30s ` +
+      `(pass --ttl 30 when minting). Runner memory is scrapable; short ` +
+      `TTLs limit the window. See ${SHAI_HULUD_DOC}`,
+  };
 }
