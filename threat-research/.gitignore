@@ -1,0 +1,24 @@
+# NEVER commit malware samples or compiled artifacts to this repo.
+# This directory is for our analysis ARTIFACTS (notes, diagrams, tables)
+# only — the source we analyze stays outside the repo.
+
+samples/
+*.tar.gz
+*.tgz
+*.zip
+*.encrypted
+
+# Compiled / extracted binaries
+**/router_init.js
+**/tanstack_runner.js
+**/setup.mjs
+**/config.mjs
+
+# But DO commit our own notes:
+!notes/
+!notes/**
+!README.md
+!Dockerfile.sandbox
+!docker-compose.sandbox.yml
+!analysis/
+!analysis/**

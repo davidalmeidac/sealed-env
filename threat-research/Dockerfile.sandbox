@@ -1,0 +1,65 @@
+# Static-analysis sandbox for sealed-env threat research.
+#
+# Hardening principles:
+#   - No network: caller passes `--network=none` (this image can't do that itself)
+#   - No package managers / runtimes for the targeted ecosystems
+#     (no bun, no node, no python beyond stdlib, no npm, no pip)
+#   - Read-only root filesystem at runtime (caller passes --read-only)
+#   - Only static-analysis tools: bat, ripgrep, fd, sha256sum, strings, xxd
+#   - Default user is unprivileged
+#
+# Build:    docker build -f Dockerfile.sandbox -t sealed-env-research .
+# Run:      see threat-research/README.md for the recommended docker run args
+#
+# Image size target: < 200 MB
+
+FROM debian:bookworm-slim
+
+LABEL org.opencontainers.image.title="sealed-env-research"
+LABEL org.opencontainers.image.description="Static malware analysis sandbox — STATIC ONLY, NO EXECUTION."
+LABEL org.opencontainers.image.source="https://github.com/davidalmeidac/sealed-env"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Use Debian's apt to install the static-analysis tools. Pin nothing —
+# we want fresh tools — but install --no-install-recommends to keep
+# the image lean and free of incidental runtimes.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      bat \
+      ripgrep \
+      fd-find \
+      coreutils \
+      binutils \
+      xxd \
+      file \
+      jq \
+      less \
+      tree \
+      ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# `fd` is shipped as `fdfind` on Debian; alias it.
+RUN ln -s /usr/bin/fdfind /usr/local/bin/fd \
+ && ln -s /usr/bin/batcat /usr/local/bin/bat
+
+# Explicitly REMOVE any runtimes that might leak in via dependencies.
+# (Debian slim shouldn't have these, but belt and suspenders.)
+RUN apt-get purge -y --auto-remove \
+      python3-pip \
+      perl \
+      ruby \
+   2>/dev/null || true
+
+# Unprivileged user.
+RUN useradd --create-home --shell /bin/bash --uid 1000 researcher \
+ && mkdir -p /workspace /host-analysis /host-notes \
+ && chown -R researcher:researcher /workspace /host-analysis /host-notes
+
+USER researcher
+WORKDIR /workspace
+
+# A welcome banner reminds the operator what they're allowed to do.
+COPY --chown=researcher:researcher banner.sh /home/researcher/.banner.sh
+RUN echo 'source ~/.banner.sh' >> /home/researcher/.bashrc
+
+CMD ["/bin/bash"]
