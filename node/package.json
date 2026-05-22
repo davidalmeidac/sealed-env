@@ -67,7 +67,7 @@
     "test": "npm run test:compile && npm run test:run",
     "test:build": "npm run build && npm run test",
     "lint": "tsc --noEmit",
-    "clean": "rm -rf dist",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepublishOnly": "npm run clean && npm run test && npm run clean && npm run build"
   },
   "repository": {
