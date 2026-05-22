@@ -22,8 +22,9 @@
  * Exit code: 0 if all checks pass, 1 otherwise.
  */
 
-import { existsSync, statSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, statSync, readFileSync, readdirSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { homedir, platform } from 'node:os';
 import { createHash } from 'node:crypto';
 
 import { unseal } from '../../core/api.js';
@@ -126,7 +127,7 @@ export function doctorCommand(argv: string[]): void {
   // These are advisory — they don't fail doctor, but they're visible.
   // See: /threat-research/analysis/shai-hulud-defense.md
   checks.push(checkPlaintextKeyExposure());
-  checks.push(checkIdeBackdoorHooks());
+  checks.push(checkPersistenceMarkers());
   checks.push(checkCiTokenTtl());
 
   // Render the report
@@ -298,24 +299,66 @@ function checkPlaintextKeyExposure(): CheckResult {
 }
 
 /**
- * Check 2: IDE backdoor hooks.
+ * Suspicious filename patterns used as persistence markers by the
+ * Shai-Hulud framework and clones. Matched as substrings (case-insensitive)
+ * against systemd unit filenames and macOS LaunchAgent plist filenames.
  *
- * The Shai-Hulud framework installs `runOn: folderOpen` in
- * `.vscode/tasks.json` and `SessionStart` hooks in `.claude/settings.json`
- * to gain persistence in any repo the attacker can write to. This check
- * detects either pattern in cwd. Both are legitimate features used by
- * non-malicious tooling, so this is a warning, not a failure — the
- * operator must inspect the actual content.
+ * Sources:
+ *   - Datadog (gh-token-monitor on macOS LaunchAgent + Linux systemd)
+ *   - Upwind (pgsql-monitor.service on Linux systemd)
+ *
+ * Keep this list narrow on purpose — false positives on persistence
+ * markers create a "boy who cried wolf" problem that erodes the
+ * doctor's credibility. Add a name here only when at least one
+ * researcher publication documents it.
  */
-function checkIdeBackdoorHooks(): CheckResult {
+const SUSPICIOUS_PERSISTENCE_NAMES = [
+  'gh-token-monitor',
+  'pgsql-monitor',
+  'pg-monitor',
+  'token-monitor',
+];
+
+function matchesSuspiciousPersistenceName(filename: string): string | null {
+  const lower = filename.toLowerCase();
+  for (const pat of SUSPICIOUS_PERSISTENCE_NAMES) {
+    if (lower.includes(pat)) return pat;
+  }
+  return null;
+}
+
+/**
+ * Check 2: persistence markers (IDE backdoors + OS-level daemons).
+ *
+ * The Shai-Hulud framework persists through two distinct surfaces:
+ *
+ *  1. IDE config files: `.vscode/tasks.json` with `runOn: folderOpen`
+ *     and `.claude/settings.json` with `SessionStart` hooks. These
+ *     survive `npm uninstall` of the compromised package because the
+ *     persistence vector IS the IDE file, not the package.
+ *
+ *  2. OS-level daemons: systemd user units (Linux) and LaunchAgents
+ *     (macOS), typically named after fake monitoring services
+ *     (`gh-token-monitor.service`, `pgsql-monitor.service`).
+ *     One of these daemons is the deadman switch that executes
+ *     `rm -rf ~/` if the operator revokes their GitHub token before
+ *     isolating the host — see docs/incident-response.md for the
+ *     correct order of operations.
+ *
+ * All findings are warnings, not failures: legitimate tooling can use
+ * the same surfaces. The doctor's job is to surface candidates for
+ * manual inspection, not to make remediation decisions.
+ */
+function checkPersistenceMarkers(): CheckResult {
   const findings: string[] = [];
+
+  // --- IDE config files (cwd-relative) ---
 
   // .vscode/tasks.json with runOn: folderOpen
   const vscodeTasks = resolve('.vscode/tasks.json');
   if (existsSync(vscodeTasks)) {
     try {
       const text = readFileSync(vscodeTasks, 'utf8');
-      // Match the runOn property regardless of whitespace / quoting style.
       if (/"runOn"\s*:\s*"folderOpen"/.test(text)) {
         findings.push('.vscode/tasks.json (runOn: folderOpen)');
       }
@@ -344,23 +387,79 @@ function checkIdeBackdoorHooks(): CheckResult {
     }
   }
 
+  // --- OS-level daemons (home-relative, platform-specific) ---
+
+  const home = homedir();
+  const plat = platform();
+
+  // Linux: enumerate ~/.config/systemd/user/ for suspiciously named units.
+  // We do NOT parse the unit file content — just match against names.
+  // A real false-positive would be a legitimate user service that
+  // happened to share one of the patterns, which we accept as the
+  // tradeoff for not parsing every operator's unit files.
+  if (plat === 'linux') {
+    const systemdDir = join(home, '.config', 'systemd', 'user');
+    findings.push(...enumeratePersistenceDir(systemdDir, 'systemd user unit'));
+  }
+
+  // macOS: enumerate ~/Library/LaunchAgents/ for suspiciously named plists.
+  if (plat === 'darwin') {
+    const launchAgentsDir = join(home, 'Library', 'LaunchAgents');
+    findings.push(...enumeratePersistenceDir(launchAgentsDir, 'LaunchAgent'));
+  }
+
+  // Windows: no equivalent home-relative daemon mechanism documented
+  // in the Shai-Hulud research as of 2026-05. Scheduled Tasks are
+  // system-wide (managed by `schtasks`) and would require elevated
+  // enumeration — out of scope for a non-admin diagnostic check.
+
   if (findings.length === 0) {
     return {
       ok: true,
-      label: 'IDE backdoor hooks',
-      detail: 'no auto-execute IDE hooks found in cwd',
+      label: 'persistence markers',
+      detail: 'no IDE backdoors or suspicious OS-level daemons found',
     };
   }
 
   return {
     ok: true,
     warn: true,
-    label: 'IDE backdoor hooks',
+    label: 'persistence markers',
     detail:
-      `auto-execute hooks in cwd: ${findings.join('; ')}. ` +
+      `auto-execute markers found: ${findings.join('; ')}. ` +
       `Inspect manually — legitimate tooling can use these, but the ` +
-      `Shai-Hulud framework also uses them for persistence. See ${SHAI_HULUD_DOC}`,
+      `Shai-Hulud framework also uses them for persistence. ` +
+      `BEFORE revoking any credentials, see docs/incident-response.md ` +
+      `(deadman switch warning). Reference: ${SHAI_HULUD_DOC}`,
   };
+}
+
+/**
+ * Enumerate a directory expected to contain OS-level daemon definitions
+ * and return findings whose filenames match any known suspicious pattern.
+ *
+ * Safe against missing/unreadable directories — returns empty array on
+ * any I/O error. Does NOT recurse — the framework drops files at the
+ * top level of the LaunchAgents / systemd user dirs.
+ */
+function enumeratePersistenceDir(dir: string, kind: string): string[] {
+  if (!existsSync(dir)) return [];
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    // permission denied, EACCES, etc. — silently skip rather than
+    // claiming a clean bill of health we can't actually verify
+    return [];
+  }
+  const findings: string[] = [];
+  for (const entry of entries) {
+    const matched = matchesSuspiciousPersistenceName(entry);
+    if (matched) {
+      findings.push(`${dir}/${entry} (suspicious ${kind} matching "${matched}")`);
+    }
+  }
+  return findings;
 }
 
 /**
