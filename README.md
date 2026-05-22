@@ -325,18 +325,33 @@ reads files sealed by the Node CLI and Java library byte-for-byte
 
 ## Documentation
 
+**[→ Full documentation index](docs/README.md)** — start here if you're new.
+
+### Getting started
 - 📖 [Overview](docs/01-overview.md) — what `sealed-env` is and isn't
-- 🔐 [Threat model](docs/02-threat-model.md) — which 2024-2026 attacks it defends against
 - 🚀 [Quick start: Node](docs/03-quickstart-node.md)
 - 🍃 [Quick start: Java + Spring Boot](docs/04-quickstart-java.md)
 - 🔑 [Enterprise mode walkthrough](docs/05-enterprise-mode.md) — TOTP + deploy binding
-- 📐 [File format anatomy](docs/06-format-anatomy.md) — what's inside `.env.sealed`
+
+### Operations
 - 🛠️ [Operational guide](docs/07-operational-guide.md) — for sysadmins, managers, and founders (no code)
 - ☁️ [CI/CD + cloud recipes](docs/08-cicd-recipes.md) — GitHub Actions, GitLab, Bitbucket, CircleCI, Jenkins, Azure, AWS, GCP, Vercel, Railway, Docker, K8s
 - 🔄 [Project lifecycle](docs/09-lifecycle.md) — init → onboarding → deploy as one narrative
-- 🎯 [Decrypt strategies](docs/10-decrypt-strategies.md) — host-side vs in-process trade-off, `deploy --remote` spec
+- 🎯 [Decrypt strategies](docs/10-decrypt-strategies.md) — host-side vs in-process trade-off
+- 🚨 [Incident response](docs/incident-response.md) — playbook for a compromised host (⚠ deadman switch warning)
+
+### Reference
+- 📐 [File format anatomy](docs/06-format-anatomy.md) — what's inside `.env.sealed`
 - 📋 [Format specification](SPEC.md) — the canonical wire format (v1)
+- 🔍 [Secret patterns](SECRET-PATTERNS.md) — canonical regex spec for tools like gitleaks / trufflehog
 - 🛡️ [Security policy](SECURITY.md) — how to report vulnerabilities
+- 🔐 [Threat model](THREAT_MODEL.md) — which 2024-2026 attacks `sealed-env` defends against
+
+### Threat research
+- 🪱 [Shai-Hulud defensive analysis](threat-research/analysis/shai-hulud-defense.md) — module-by-module mapping of TTPs to defenses
+- 📊 [IOC table](threat-research/analysis/ioc-table.md) — consolidated indicators from public research
+- 🛣️ [Improvement roadmap](threat-research/analysis/improvement-roadmap.md) — prioritized hardening for 0.2.2 / 0.3.0
+- 💡 [Future: supply-chain IOC feed bot](threat-research/analysis/future-supply-chain-monitor.md) — design brainstorm
 
 ## Project status
 
