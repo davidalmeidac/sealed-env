@@ -19,6 +19,79 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.2.1] — 2026-05-22
+
+> Defensive hardening release. No spec changes, no wire format changes.
+> Files sealed by `0.2.0` decrypt identically here. Designed in response
+> to the TeamPCP open-sourcing of the Shai-Hulud framework on 2026-05-12.
+
+### Added
+
+- **`sealed-env scan [path]`** — new CLI command that detects accidentally
+  committed sealed-env secrets (tokens, master/signing/TOTP keys) in
+  source files. Supports `--staged` (pre-commit hook ready), `--json`
+  (CI integration with schema `sealed-env-scan/v1`), and `--explain <ID>`
+  (in-CLI pattern docs). Drop-in `gitleaks` config bundled at
+  `.gitleaks/sealed-env.toml` for projects that already use gitleaks.
+  Test corpus at `tests/secret-patterns/` validates 100% recall on
+  30 positive cases and 100% precision on 64 negative cases.
+
+- **`SECRET-PATTERNS.md`** — canonical regex spec for every sensitive
+  string sealed-env emits or consumes. Source of truth mirrored in
+  the CLI, the gitleaks config, and the standalone validator at
+  `scripts/validate-secret-patterns.mjs`.
+
+- **`sealed-env doctor` — three hardening checks against the Shai-Hulud
+  attack surface**:
+  - Plaintext master / signing / TOTP secret detection in `.env.local`
+    and `.env` (recommends `keychain push`).
+  - IDE backdoor hook detection in `.vscode/tasks.json` (`runOn: folderOpen`)
+    and `.claude/settings.json` (`SessionStart` hook), plus suspicious
+    loader filenames (`.vscode/setup.mjs`, `.claude/setup.mjs`).
+  - CI hardening recommendation when `GITHUB_ACTIONS=true` + unseal
+    token are detected (recommends TTL ≤ 30s to reduce the impact of
+    `/proc/<pid>/mem` runner scraping).
+
+  All three are advisory (`[!]` warnings, not failures) — `doctor` still
+  exits 0 if only warnings are reported. Each warning links to the
+  detailed defensive analysis.
+
+- **`threat-research/` directory** — methodology, sandbox infrastructure
+  (Dockerfile + banner with anti-execution aliases), IOC tables, and a
+  module-by-module defensive analysis of the open-sourced Shai-Hulud
+  framework (`analysis/shai-hulud-defense.md`). Sources cited
+  throughout: Datadog Security Labs, StepSecurity, Mondoo, Akamai,
+  The Register. No malware samples in this repo; analysis derives
+  entirely from researcher publications.
+
+### Changed
+
+- **`THREAT_MODEL.md`** — Section 1 (Shai-Hulud) expanded with the
+  2026-05-12 open-sourcing event and the TanStack campaign that
+  followed. New section "Defense posture against the open-sourced
+  Shai-Hulud framework" with module-by-module summary and honest
+  scope claim. "Out of scope" section expanded with 4 entries covering
+  NPM_TOKEN re-publishing, persistence daemons, `/proc` memory
+  scraping, and initial malicious dependency compromise.
+
+- **`README.md`** — "Why this exists" updated to mention the 2026
+  open-sourcing event. New blockquote with honest scope claim:
+  sealed-env **reduces the impact** of Shai-Hulud-class supply-chain
+  attacks; it **does not prevent** initial host compromise.
+
+### Notes for operators
+
+- Run `sealed-env doctor` after upgrading. The new hardening checks
+  may surface warnings you haven't seen before; none of them indicate
+  defects in your existing setup, but each one points to a posture
+  improvement worth considering.
+- If you maintain other npm packages, also consider enabling pnpm 11
+  `minimumReleaseAge: 24h` or Yarn Berry `npmMinimalAgeGate: 3d` for
+  your projects — those are the cheapest ecosystem-wide mitigations
+  against Shai-Hulud-class worms.
+
+---
+
 ## [0.2.0] — Securitas — 2026-05-10
 
 > _Codename_: **Securitas** — Roman goddess of state security and stability.
