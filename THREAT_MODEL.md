@@ -7,9 +7,9 @@
 
 ## Real attacks we are defending against
 
-### 1. Shai-Hulud npm worm (Sept 2025 + Nov 2025 v2.0)
+### 1. Shai-Hulud npm worm (Sept 2025 → May 2026 open-sourcing)
 
-**What happened:**
+**Phase 1 (Sept 2025 + Nov 2025 v2.0):**
 - Self-replicating worm infected 500+ npm packages
 - Payload (`setup_bun.js`, `bun_environment.js`) ran TruffleHog on the host
 - Scanned filesystem for `GITHUB_TOKEN`, `NPM_TOKEN`, `AWS_ACCESS_KEY_ID`, etc.
@@ -17,10 +17,31 @@
 - Used stolen npm tokens to publish more infected packages → exponential spread
 - Final tally: **25,000+ compromised repos**, hundreds of orgs
 
+**Phase 2 (May 12, 2026 — TeamPCP open-sources the framework):**
+- TeamPCP publishes the full Shai-Hulud framework on GitHub under MIT license
+- Headline: *"Shai-Hulud: Open Sourcing The Carnage"*
+- Framework is **modular TypeScript + Bun runtime**: Loaders → Providers → Collector → Dispatcher → Senders → Mutators
+- Concurrent "Mini Shai-Hulud" campaign hits **84 malicious versions across 42 @tanstack packages** plus UiPath, DraftLab, Mistral AI
+- New techniques observed:
+  - `/proc/<pid>/mem` memory scrape of GitHub Actions Runner.Worker (bypasses log masking)
+  - **OIDC + forged Sigstore provenance** — publishes to npm with SLSA Build Level 3 attestations
+  - IDE persistence via `.vscode/tasks.json` (`runOn: folderOpen`) and `.claude/settings.json` (`SessionStart` hook)
+  - Deadman switch: revoking the operator's GitHub token executes `rm -rf ~/`
+  - Session-protocol C2 exfiltration via `filev2.getsession.org` (Oxen Privacy Tech pinned cert)
+- Clones already in the wild within 48h (`chalk-tempalte` typosquat with DDoS + wallet stealer payloads)
+
 **What it teaches us:**
 - A malicious npm install **WILL** scan your project dir for `.env` files
 - A malicious npm install **WILL** read `process.env` at runtime
+- CI runner memory is **scrapable** via `/proc` — log masking is not enough
+- npm trusted publishing + Sigstore can be **forged** if `id-token: write` leaks
+- IDE config files are **persistence vectors**
 - Plaintext `.env` is dead. Cleartext secrets in env vars during install are dead.
+
+**Defense posture**: see [`threat-research/analysis/shai-hulud-defense.md`](./threat-research/analysis/shai-hulud-defense.md)
+for the per-module breakdown of what sealed-env defends, what it defends with config, and what it
+explicitly does not defend against. Run `sealed-env doctor` for an automated posture check on your
+current setup.
 
 ### 2. tj-actions/changed-files (March 2025)
 
@@ -188,7 +209,7 @@ Affected versions are deprecated. Tracked as
 
 ## What we explicitly do NOT defend against
 
-We are honest about the limits. v0.1.0 does not protect against:
+We are honest about the limits. As of v0.2.1, sealed-env does not protect against:
 
 | Out of scope | Why |
 |---|---|
@@ -196,9 +217,50 @@ We are honest about the limits. v0.1.0 does not protect against:
 | Insider threat with master key + TOTP access | Mitigation = Shamir threshold sharing in v0.4.0 |
 | OS-level keylogger reading TOTP at type-time | Out of scope — no software can fix host compromise |
 | Side-channel hardware attacks (Spectre, Rowhammer) | Out of scope — rely on JVM/Node hardening |
-| Malicious sealed-env CLI binary | Mitigation = npm provenance attestations + reproducible builds |
+| Re-publishing of sealed-env itself with a stolen `~/.npmrc` token | Mitigation = npm trusted publishing config + 2FA + release-age cooldowns by consumers (pnpm 11 `minimumReleaseAge`) |
+| Persistence daemons / IDE hooks installed by an unrelated worm | Host hygiene; `sealed-env doctor` will *detect* the markers but cannot prevent installation |
+| Memory scraping of `/proc/<pid>/mem` by privileged malware on the host | Mitigation = short unseal-token TTLs (≤ 30s) + replay cache + ephemeral CI runners |
+| Initial compromise via malicious dependency install | Ecosystem-level problem; use pnpm 11 / Yarn Berry release-age gates |
 
 We document these clearly in README. Lying about scope erodes trust.
+
+---
+
+## Defense posture against the open-sourced Shai-Hulud framework
+
+After TeamPCP open-sourced their framework on 2026-05-12, we did a per-module
+mapping of every documented technique against sealed-env's defenses. The
+honest summary:
+
+| Shai-Hulud module | What it does | sealed-env posture |
+|---|---|---|
+| `FileSystemService` | Recursive `**/.env` scan, reads 100+ credential paths | 🟢 Mitigated *only with* `keychain push` — master key out of disk |
+| `ShellService` | Captures full `process.env` of the launching shell | 🟡 Window-bound mitigation: TTL ≤ 30s on unseal tokens limits damage |
+| `GitHubRunner` | `/proc/<pid>/mem` scrape of Runner.Worker | 🟡 Same — short TTL + replay cache (`ops_id` single-use) |
+| `AwsProvider` / `K8s` / `Vault` | Cloud secret-store enumeration | ⚪ Out of scope; secret-store IAM does the work |
+| `NpmClient` | Republishes packages with `preinstall` payload | 🔴 Out of scope; operator must use pnpm 11 `minimumReleaseAge` |
+| `NPMOidcClient` | OIDC + forged Sigstore provenance | 🔴 Out of scope; npm trusted publishing config does the work |
+| `ReadmeUpdater` (IDE hooks) | Commits `tasks.json` + `settings.json` backdoors | 🟢 `sealed-env doctor` detects the markers |
+| Persistence daemons (LaunchAgent / systemd) + `rm -rf ~/` deadman switch | Host-level persistence + retaliation | ⚪ Out of scope; documented in incident-response guidance |
+
+Legend: 🟢 defends by default · 🟡 defends with config · 🔴 does not defend (other tool does) · ⚪ out of scope
+
+Run `sealed-env doctor` from your project directory for an automated check
+against the markers above. The doctor command will:
+
+- Detect plain-hex `SEALED_ENV_KEY` / `SEALED_ENV_SIGNING_KEY` / `SEALED_ENV_TOTP_SECRET`
+  in `.env.local` and recommend `keychain push`.
+- Detect IDE-backdoor markers in `.vscode/tasks.json` and `.claude/settings.json`.
+- Detect GitHub Actions context + unseal-token combination and recommend
+  `--ttl 30` for production deploys.
+
+The full module-by-module analysis with citations is in
+[`threat-research/analysis/shai-hulud-defense.md`](./threat-research/analysis/shai-hulud-defense.md).
+
+> What we DON'T claim: that sealed-env prevents Shai-Hulud compromise.
+> What we DO claim: that sealed-env reduces the impact of a Shai-Hulud-class
+> compromise on a workstation by keeping master keys out of disk and
+> `process.env` when configured with `keychain push` and enterprise mode.
 
 ---
 
@@ -261,6 +323,10 @@ We avoid:
 
 ## Reading list (sources)
 
+- [Shai-Hulud framework static analysis (Datadog Security Labs, May 2026)](https://securitylabs.datadoghq.com/articles/shai-hulud-open-source-framework-static-analysis/)
+- [Mini Shai-Hulud campaign forensics (StepSecurity, May 2026)](https://www.stepsecurity.io/blog/mini-shai-hulud-is-back-a-self-spreading-supply-chain-attack-hits-the-npm-ecosystem)
+- [Shai-Hulud clone proliferation (Mondoo, May 2026)](https://mondoo.com/blog/shai-hulud-clones-arrive-when-worm-source-code-goes-open-source)
+- [TeamPCP open-sources the framework (The Register, May 2026)](https://www.theregister.com/security/2026/05/13/malware-crew-teampcp-open-sources-its-shai-hulud-worm-on-github/5239319)
 - [Shai-Hulud campaign analysis (Unit42)](https://unit42.paloaltonetworks.com/npm-supply-chain-attack/)
 - [npm threat landscape (Unit42)](https://unit42.paloaltonetworks.com/monitoring-npm-supply-chain-attacks/)
 - [Sha1-Hulud 2.0 (Wiz)](https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack)

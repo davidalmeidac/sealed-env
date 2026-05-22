@@ -35,3 +35,6 @@ maven-secrets/
 
 # Local-only presentation diagrams (work in progress, not for the repo)
 presentation/diagrams/
+
+# AI planning artifacts (session-local, not project source)
+.atl/

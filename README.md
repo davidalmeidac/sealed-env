@@ -28,7 +28,8 @@ with optional TOTP-based unsealing for production deploys.
 In **2025 alone**, supply-chain attacks on the JavaScript ecosystem stole **thousands of
 plaintext secrets** from CI/CD pipelines and developer machines. The Shai-Hulud worm
 (November 2025) compromised over **25,000 repositories** by scanning for `.env` files
-and exfiltrating their contents to public GitHub repos.
+and exfiltrating their contents to public GitHub repos. On **May 12, 2026**, TeamPCP
+open-sourced the full framework on GitHub; clones appeared within 48 hours.
 
 The lesson is simple: **plaintext `.env` is dead**. And encrypted-at-rest alone isn't
 enough — if the master key leaks (and they do — see the tj-actions and GhostAction
@@ -37,6 +38,14 @@ campaigns), the entire vault opens.
 `sealed-env` solves both halves: it encrypts your secrets at rest, **and** it can require
 a fresh TOTP code from a human operator before each production deploy. Even if your CI
 pipeline is fully compromised, attackers cannot decrypt without the operator's phone.
+
+> **Honest scope claim**: sealed-env *reduces the impact* of Shai-Hulud-class
+> supply-chain attacks by keeping master keys out of disk and `process.env`
+> when configured with `sealed-env keychain push` and enterprise mode + short-TTL
+> unseal tokens. It **does not prevent** the initial compromise of a developer
+> machine or CI runner. Full per-module analysis:
+> [`threat-research/analysis/shai-hulud-defense.md`](./threat-research/analysis/shai-hulud-defense.md).
+> Run `sealed-env doctor` for an automated posture check.
 
 ## What you get
 
