@@ -1,0 +1,64 @@
+# Negative cases — token formats that MUST NOT match
+# Every line is something that looks tokenish but is NOT a real secret.
+
+# === SE-T1 false-positive bait ===
+
+# Wrong mode letter (only b|t|e|u|d are valid)
+sealed_env_x_abcd_payloadbase64urlencodedhere1234567890ABCDEFGHIJKLMN
+sealed_env_z_c0dd_oWFtWCCqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg
+sealed_env_a_aaaa_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+# Invalid checksum chars (must be hex)
+sealed_env_b_GGGG_oWFtWCCqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg
+sealed_env_b_zzzz_oWFtWCCqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg
+
+# Payload too short
+sealed_env_b_c0dd_short
+sealed_env_b_c0dd_a
+sealed_env_t_9ccb_abcdef
+
+# Wrong separators (dashes instead of underscores)
+sealed-env-b-c0dd-oWFtWCCqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg
+
+# Wrong case on prefix
+SEALED_ENV_B_C0DD_oWFtWCCqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg
+Sealed_Env_b_c0dd_oWFtWCCqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg
+
+# Documentation placeholders
+sealed_env_<mode>_<cksum>_<payload>
+sealed_env_b_<checksum>_<base64url_payload>
+
+# === SE-T2 false-positive bait ===
+
+# Just "usl_" with junk
+usl_random
+usl_abc
+usl_aaaaa
+
+# Two-part (not three)
+usl_eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzZWFsZWQtZW52In0
+usl_part1.part2
+
+# Three parts but each too short (below 40-char floor)
+usl_abc.def.ghi
+usl_aaaaaaaa.bbbbbbbb.cccccccc
+usl_eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ4In0.QQ
+
+# Looks like JWT but wrong prefix (it's a real JWT from auth0 docs, NOT a sealed-env token)
+eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJqb2UiLCJleHAiOjEzMDA4MTkzODAsImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ.dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk
+
+# Wrong case prefix
+USL_eyJhbGciOiJIUzI1NiIsInR5cCI6InNlYWxlZC1lbnYtdW5zZWFsL3YxIn0.eyJpc3MiOiJzZWFsZWQtZW52LWNsaSJ9.qgzqvHrmZCS69Tm-ahGU_QEsoRfOT_jjIZSR
+
+# Not at word boundary (URL path containing usl_)
+https://example.com/api/musl_test_endpoint
+function callusl_endpoint(x) { return x }
+
+# === Random base64url that's NOT a sealed-env token ===
+oWFtWCCqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg
+some_random_b64=aHR0cHM6Ly9leGFtcGxlLmNvbS9hcGk
+
+# === Documentation: explaining the format ===
+# The token format is: sealed_env_<mode>_<cksum>_<payload>
+# where <mode> is one of b, t, e, u, d
+# and <cksum> is 4 hex chars

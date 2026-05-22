@@ -1,0 +1,29 @@
+# Positive cases — env var secrets (SE-K1, SE-K2, SE-K3, SE-K3-URI)
+
+# === SE-K1: master key ===
+SEALED_ENV_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+SEALED_ENV_KEY="fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+SEALED_ENV_KEY = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
+SEALED_ENV_KEY=0000000000000000000000000000000000000000000000000000000000000001
+export SEALED_ENV_KEY=cafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe
+
+# In Dockerfile
+ENV SEALED_ENV_KEY=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+
+# In docker-compose / YAML (KEY: value syntax also matches)
+SEALED_ENV_KEY: "feedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedface"
+
+# === SE-K2: signing key ===
+SEALED_ENV_SIGNING_KEY=babababababababababababababababababababababababababababababababa
+SEALED_ENV_SIGNING_KEY="00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+SEALED_ENV_SIGNING_KEY='1010101010101010101010101010101010101010101010101010101010101010'
+
+# === SE-K3: TOTP secret ===
+SEALED_ENV_TOTP_SECRET=JBSWY3DPEHPK3PXP
+SEALED_ENV_TOTP_SECRET="GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+SEALED_ENV_TOTP_SECRET=ORSXG5BAONUGCZDPO5XXEZJB
+SEALED_ENV_TOTP_SECRET=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
+
+# === SE-K3-URI: otpauth URI ===
+otpauth://totp/sealed-env:operator@example.com?secret=JBSWY3DPEHPK3PXP&issuer=sealed-env
+otpauth://totp/sealed-env:david?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ&issuer=sealed-env&algorithm=SHA1&digits=6&period=30

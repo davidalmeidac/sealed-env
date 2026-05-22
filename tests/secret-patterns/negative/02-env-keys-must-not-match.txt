@@ -1,0 +1,78 @@
+# Negative cases — env var declarations that MUST NOT match
+# Includes the classic false-positive sources: placeholders, partials,
+# wrong var names, lookalike base32 from other tools.
+
+# === SE-K1 / SE-K2 (hex keys) — non-matching ===
+
+# Placeholders (no hex value)
+SEALED_ENV_KEY=<your_key_here>
+SEALED_ENV_KEY=<YOUR_KEY>
+SEALED_ENV_KEY=YOUR_MASTER_KEY_HERE
+SEALED_ENV_KEY=changeme
+SEALED_ENV_KEY=                                    # empty
+SEALED_ENV_KEY=                                  # only whitespace
+SEALED_ENV_KEY=""
+SEALED_ENV_KEY=''
+SEALED_ENV_SIGNING_KEY=<sign_with_this>
+
+# Too short (< 64 hex)
+SEALED_ENV_KEY=0123456789abcdef
+SEALED_ENV_KEY=abc
+SEALED_ENV_SIGNING_KEY=babababababababababababababababa
+
+# Too long (> 64 hex) — caller likely meant base64 or a different scheme
+SEALED_ENV_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+# Wrong charset (G–Z appear → not hex)
+SEALED_ENV_KEY=ghijklmnopqrstuvghijklmnopqrstuvghijklmnopqrstuvghijklmnopqrstuv
+SEALED_ENV_KEY=THIS_IS_NOT_HEX_ASDFGHJKL_ZXCVBNM_ASDFGHJKL_ZXCVBNM_ASDFGHJKL_ZX
+
+# Shell substitution patterns (still a leak risk but NOT detectable by static regex)
+SEALED_ENV_KEY=$MASTER_KEY
+SEALED_ENV_KEY="$(< /run/secrets/master.hex)"
+SEALED_ENV_KEY=${SEALED_ENV_KEY_PROD}
+SEALED_ENV_KEY="$(cat secrets/master.hex)"
+
+# Wrong variable name (similar but not exact)
+EXAMPLE_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+SEALED_ENV_KEY_BACKUP_PREVIOUS=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+# === SE-K3 (TOTP base32) — non-matching ===
+
+# Placeholders
+SEALED_ENV_TOTP_SECRET=<paste_otpauth_secret_here>
+SEALED_ENV_TOTP_SECRET=<YOUR_TOTP>
+SEALED_ENV_TOTP_SECRET=
+SEALED_ENV_TOTP_SECRET=""
+
+# Too short (< 16 base32 chars)
+SEALED_ENV_TOTP_SECRET=ABCDEF
+SEALED_ENV_TOTP_SECRET=JBSWY3DP
+
+# Lowercase (NOT canonical RFC 4648 base32 — sealed-env normalizes/rejects)
+SEALED_ENV_TOTP_SECRET=jbswy3dpehpk3pxp
+
+# Wrong charset (contains 0, 1, 8, 9 which are not RFC 4648 base32)
+SEALED_ENV_TOTP_SECRET=01234567890123456789
+SEALED_ENV_TOTP_SECRET=ABCDEFGH00112233
+
+# Wrong variable name
+GOOGLE_TOTP_SECRET=JBSWY3DPEHPK3PXP
+GITHUB_TOTP_SECRET=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ
+AWS_TOTP_SECRET=ORSXG5BAONUGCZDPO5XXEZJB
+
+# === SE-K3-URI — non-matching otpauth URIs ===
+
+# Not sealed-env (different issuer, no secret param at all)
+otpauth://totp/MyApp:user@example.com?issuer=MyApp
+otpauth://hotp/example?secret=JBSWY3DPEHPK3PXP&counter=0
+
+# === Documentation context ===
+# Each demo user's master key is set in `.env.local` via SEALED_ENV_KEY=<64 hex>
+# The signing key (SEALED_ENV_SIGNING_KEY) is required only in team and enterprise modes.
+
+# === Truncated/wrapped lines ===
+# (real .env values are usually one line; if they wrap, the regex correctly
+# stops at the first non-hex char, so this should not match)
+SEALED_ENV_KEY=0123456789abcdef0123456789abcdef\
+0123456789abcdef0123456789abcdef

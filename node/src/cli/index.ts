@@ -22,6 +22,7 @@ import { execCommand } from './commands/exec.js';
 import { rotateCommand } from './commands/rotate.js';
 import { deployCommand } from './commands/deploy.js';
 import { keychainCommand } from './commands/keychain.js';
+import { scanCommand } from './commands/scan.js';
 import { autoloadSealedEnvLocal } from './utils/io.js';
 import { SealedEnvError } from '../core/errors.js';
 
@@ -38,6 +39,7 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<void> | void> = {
   deploy: deployCommand,
   rotate: rotateCommand,
   keychain: keychainCommand,
+  scan: scanCommand,
   doctor: doctorCommand,
   help: helpCommand,
   version: versionCommand,
@@ -72,7 +74,11 @@ async function main(): Promise<void> {
   // and shouldn't be influenced by an existing one) and for `version` /
   // `help` (which don't touch keys at all).
   const skipAutoload =
-    cmd === 'init' || cmd === 'version' || cmd === 'help' || cmd === 'keychain';
+    cmd === 'init' ||
+    cmd === 'version' ||
+    cmd === 'help' ||
+    cmd === 'keychain' ||
+    cmd === 'scan';
   if (!skipAutoload && process.env['SEALED_ENV_NO_AUTOLOAD'] !== '1') {
     const { loaded, source } = autoloadSealedEnvLocal();
     if (loaded > 0) {
@@ -174,6 +180,16 @@ function helpCommand(): void {
       '  doctor [<file.env.sealed>]',
       '      Validate your env vars, file, and roundtrip without printing',
       '      any secret values. Safe to paste into a CI log or support thread.',
+      '',
+      'Secret detection (gitleaks-compatible):',
+      '  scan [<path>] [--staged] [--json] [--explain <ID>]',
+      '      Scan files for accidentally committed sealed-env secrets',
+      '      (tokens, master/signing/TOTP keys). Use --staged in a',
+      '      pre-commit hook. Patterns documented in SECRET-PATTERNS.md.',
+      '',
+      '      Example:  sealed-env scan --staged',
+      '                sealed-env scan src/ --json',
+      '                sealed-env scan --explain SE-T2',
       '',
       'Other:',
       '  --version, -v       Print sealed-env version.',

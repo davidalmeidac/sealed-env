@@ -1,0 +1,99 @@
+# sealed-env secret detection rules for gitleaks
+#
+# Canonical spec:   ../SECRET-PATTERNS.md
+# Reference corpus: ../tests/secret-patterns/{positive,negative}/
+#
+# Usage:
+#   gitleaks detect --config=.gitleaks/sealed-env.toml --source=.
+#   gitleaks protect --config=.gitleaks/sealed-env.toml --staged
+#
+# To extend gitleaks' default rules instead of replacing them:
+#   gitleaks detect --config=.gitleaks/sealed-env.toml \
+#     --baseline-path=.gitleaks/baseline.json
+#
+# All rules are tagged "sealed-env" and "secret" so they can be
+# filtered or reported separately from other detector groups.
+
+title = "sealed-env"
+
+# -----------------------------------------------------------------
+# SE-T1 — Credential token (basic/team/enterprise/unseal/deploy)
+# -----------------------------------------------------------------
+[[rules]]
+id          = "sealed-env-credential-token"
+description = "sealed-env credential token (sealed_env_<mode>_<cksum>_<payload>)"
+regex       = '''sealed_env_[btued]_[0-9a-fA-F]{4}_[A-Za-z0-9_-]{20,500}'''
+keywords    = ["sealed_env_"]
+tags        = ["sealed-env", "secret", "token", "SE-T1"]
+
+# -----------------------------------------------------------------
+# SE-T2 — Unseal token (TOTP-bound, JWS HS256)
+# -----------------------------------------------------------------
+[[rules]]
+id          = "sealed-env-unseal-token"
+description = "sealed-env unseal token (usl_<header>.<payload>.<sig>)"
+regex       = '''usl_[A-Za-z0-9_-]{40,200}\.[A-Za-z0-9_-]{40,400}\.[A-Za-z0-9_-]{40,100}'''
+keywords    = ["usl_"]
+tags        = ["sealed-env", "secret", "token", "SE-T2"]
+
+# -----------------------------------------------------------------
+# SE-K1 — Master key (env var)
+# -----------------------------------------------------------------
+[[rules]]
+id          = "sealed-env-master-key"
+description = "sealed-env master key (32-byte hex in SEALED_ENV_KEY)"
+regex       = '''SEALED_ENV_KEY\s*[=:]\s*["']?([0-9a-fA-F]{64})(?![0-9a-fA-F])["']?'''
+keywords    = ["SEALED_ENV_KEY"]
+tags        = ["sealed-env", "secret", "key", "SE-K1"]
+secretGroup = 1
+
+# -----------------------------------------------------------------
+# SE-K2 — Signing key (env var)
+# -----------------------------------------------------------------
+[[rules]]
+id          = "sealed-env-signing-key"
+description = "sealed-env signing key (32-byte hex in SEALED_ENV_SIGNING_KEY)"
+regex       = '''SEALED_ENV_SIGNING_KEY\s*[=:]\s*["']?([0-9a-fA-F]{64})(?![0-9a-fA-F])["']?'''
+keywords    = ["SEALED_ENV_SIGNING_KEY"]
+tags        = ["sealed-env", "secret", "key", "SE-K2"]
+secretGroup = 1
+
+# -----------------------------------------------------------------
+# SE-K3 — TOTP secret (env var)
+# -----------------------------------------------------------------
+[[rules]]
+id          = "sealed-env-totp-secret"
+description = "sealed-env TOTP secret (base32 in SEALED_ENV_TOTP_SECRET)"
+regex       = '''SEALED_ENV_TOTP_SECRET\s*[=:]\s*["']?([A-Z2-7]{16,64}={0,6})(?![A-Z2-7])["']?'''
+keywords    = ["SEALED_ENV_TOTP_SECRET"]
+tags        = ["sealed-env", "secret", "key", "SE-K3"]
+secretGroup = 1
+
+# -----------------------------------------------------------------
+# Optional: SE-K3-URI — otpauth:// URI carrying the TOTP secret
+# Enabled by default because the URI form is easy to leak via
+# QR-rendering screenshots, dev notes, and shared docs.
+# -----------------------------------------------------------------
+[[rules]]
+id          = "sealed-env-totp-otpauth-uri"
+description = "otpauth:// URI containing TOTP secret (sealed-env enterprise mode)"
+regex       = '''otpauth://totp/[^?\s]*\?[^"\s]*secret=([A-Z2-7]{16,64}={0,6})'''
+keywords    = ["otpauth://", "sealed-env"]
+tags        = ["sealed-env", "secret", "key", "SE-K3-URI"]
+secretGroup = 1
+
+# -----------------------------------------------------------------
+# Allowlist — known-safe contexts
+# Adjust this list when adopting in your own repo. The defaults here
+# cover sealed-env's own docs and fixtures.
+# -----------------------------------------------------------------
+[allowlist]
+description = "Files where sample secrets are documentation, not real leaks"
+paths = [
+  '''SECRET-PATTERNS\.md$''',
+  '''tests/secret-patterns/.*''',
+  '''test-vectors/.*\.json$''',
+  '''CHANGELOG\.md$''',
+  '''docs/.*\.md$''',
+  '''README\.md$''',
+]
