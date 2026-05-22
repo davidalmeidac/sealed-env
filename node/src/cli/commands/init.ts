@@ -95,6 +95,27 @@ export function initCommand(argv: string[]): void {
       '',
       `Saved to ${envLocalPath} (gitignored).`,
       '',
+      // ──────────────────────────────────────────────────────────────
+      // SECURITY CALLOUT — surfaced here, at the exact moment the
+      // operator has just been told their master key is on disk.
+      // This is the highest-leverage moment to recommend `keychain push`
+      // before the operator forgets about the file and treats it as
+      // permanent state. See THREAT_MODEL.md "Defense posture against
+      // the open-sourced Shai-Hulud framework" for why this matters:
+      // FileSystemService scans `**/.env` recursively and reads up to
+      // 5 MB per file. With the key in .env.local, a malicious npm
+      // install can exfiltrate it on the next `npm i`.
+      // ──────────────────────────────────────────────────────────────
+      '⚠  Your master key is now in plaintext on disk.',
+      '',
+      '   RECOMMENDED: move it to the OS keychain immediately:',
+      '       sealed-env keychain push',
+      '',
+      '   This is the single most impactful step against malicious npm',
+      '   postinstall scripts that scan .env files (Shai-Hulud-class',
+      '   attacks). See:',
+      '   https://github.com/davidalmeidac/sealed-env/blob/main/threat-research/analysis/shai-hulud-defense.md',
+      '',
       ...(otpauthUri
         ? [
             'Scan this QR with your authenticator app (Google Authenticator,',
