@@ -23,6 +23,7 @@ import { rotateCommand } from './commands/rotate.js';
 import { deployCommand } from './commands/deploy.js';
 import { keychainCommand } from './commands/keychain.js';
 import { scanCommand } from './commands/scan.js';
+import { huntShaiHuludCommand } from './commands/hunt_shai_hulud.js';
 import { autoloadSealedEnvLocal } from './utils/io.js';
 import { SealedEnvError } from '../core/errors.js';
 
@@ -40,6 +41,7 @@ const COMMANDS: Record<string, (argv: string[]) => Promise<void> | void> = {
   rotate: rotateCommand,
   keychain: keychainCommand,
   scan: scanCommand,
+  'hunt-shai-hulud': huntShaiHuludCommand,
   doctor: doctorCommand,
   help: helpCommand,
   version: versionCommand,
@@ -78,7 +80,8 @@ async function main(): Promise<void> {
     cmd === 'version' ||
     cmd === 'help' ||
     cmd === 'keychain' ||
-    cmd === 'scan';
+    cmd === 'scan' ||
+    cmd === 'hunt-shai-hulud';
   if (!skipAutoload && process.env['SEALED_ENV_NO_AUTOLOAD'] !== '1') {
     const { loaded, source } = autoloadSealedEnvLocal();
     if (loaded > 0) {
@@ -190,6 +193,15 @@ function helpCommand(): void {
       '      Example:  sealed-env scan --staged',
       '                sealed-env scan src/ --json',
       '                sealed-env scan --explain SE-T2',
+      '',
+      'Shai-Hulud IOC hunter:',
+      '  hunt-shai-hulud [<path>] [--json]',
+      '      Scan package-lock.json + node_modules + OS persistence',
+      '      markers for indicators of the open-sourced TeamPCP',
+      '      Shai-Hulud framework and its known variants (TanStack,',
+      '      AntV, Mistral AI campaigns of May 2026). Reads only —',
+      '      does not execute anything found. Exit code 0/1/2 maps',
+      '      to clean / suspect / compromised.',
       '',
       'Other:',
       '  --version, -v       Print sealed-env version.',
