@@ -19,6 +19,35 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.2.2] — 2026-05-23
+
+> IOC-hunter release. No spec changes, no wire format changes. Files sealed
+> by `0.2.0`/`0.2.1` decrypt identically here. Adds an opinionated, narrow-
+> scope detector for the open-sourced Shai-Hulud framework and its
+> known variants (TanStack, AntV, Mistral AI campaigns of May 2026).
+
+### Added
+
+- **`sealed-env hunt-shai-hulud [path] [--json]`** — focused IOC scanner
+  that checks `package-lock.json` for known-malicious package versions,
+  `node_modules/*/` for loader files at the package root
+  (`router_init.js`, `tanstack_runner.js`, `setup.mjs`, …), suspicious
+  `pre/postinstall` scripts, `optionalDependencies` pointing to GitHub
+  commit SHAs, and OS-level persistence markers (systemd user units,
+  LaunchAgents). Exit code `0` clean / `1` suspect / `2` compromised
+  maps cleanly to CI gates. JSON schema `sealed-env-hunt-shai-hulud/v1`.
+  Read-only — does not execute anything found. Tied to
+  `threat-research/analysis/ioc-table.md` so every finding cites
+  published research.
+
+### Notes
+
+- Not a replacement for Snyk / Socket / Phylum. This is the open-source
+  narrow-scope check sealed-env users can run as a default first line of
+  defense.
+
+---
+
 ## [0.2.1] — 2026-05-22
 
 > Defensive hardening release. No spec changes, no wire format changes.
