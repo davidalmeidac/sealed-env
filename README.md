@@ -353,6 +353,28 @@ reads files sealed by the Node CLI and Java library byte-for-byte
 - 🛣️ [Improvement roadmap](threat-research/analysis/improvement-roadmap.md) — prioritized hardening for 0.2.2 / 0.3.0
 - 💡 [Future: supply-chain IOC feed bot](threat-research/analysis/future-supply-chain-monitor.md) — design brainstorm
 
+## Independent security coverage
+
+[CVE-2026-45091](https://nvd.nist.gov/vuln/detail/CVE-2026-45091) was responsibly
+self-disclosed and patched in `0.1.0-alpha.4`. The disclosure has been
+independently indexed and analyzed by:
+
+| Source | What it is |
+|---|---|
+| [NIST NVD](https://nvd.nist.gov/vuln/detail/CVE-2026-45091) | Official US National Vulnerability Database entry (CVSS 9.1, CWE-200 + CWE-522) |
+| [CVE.org](https://www.cve.org/CVERecord?id=CVE-2026-45091) | Canonical CVE record |
+| [GitHub Security Advisory](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv) | GHSA-x3r2-fj3r-g5mv (our advisory) |
+| [CVEReports](https://cvereports.com/reports/CVE-2026-45091) | Independent technical analysis by Alon Barad (Software Engineer) |
+| [DailyCVE](https://dailycve.com/sealed-env-enterprise-mode-totp-secret-disclosure-in-jws-payload-cve-notassigned-critical/) | Independent technical writeup |
+| [CIRCL Vulnerability-Lookup](https://vulnerability.circl.lu/vuln/cve-2026-45091) | European tracking (Luxembourg CERT) |
+| [Sploitus](https://sploitus.com/exploit?id=56A47FC3-08EB-5EC2-8C16-7753CB74279B) | Exploit feed aggregator entry |
+| [HORKimhab/CVE-2026-45091](https://github.com/HORKimhab/CVE-2026-45091) | Third-party reproducible PoC published for research |
+
+We list these because **verifiable third-party coverage is part of a healthy
+disclosure track-record**. The CVE itself is a fixed bug, not a current
+defect — see the [advisory](https://github.com/davidalmeidac/sealed-env/security/advisories/GHSA-x3r2-fj3r-g5mv)
+for the full timeline and remediation steps.
+
 ## Project status
 
 **v0.1.0 — stable.** The wire format (`SEALED-ENV-V1`) is **frozen** and
