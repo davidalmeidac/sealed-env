@@ -19,6 +19,55 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ---
 
+## [0.2.3] — 2026-05-28
+
+> External-secret coverage + repository supply-chain hardening. No spec
+> changes, no wire format changes. Files sealed by `0.2.x` decrypt
+> identically here.
+
+### Added
+
+- **`SE-K4` — PyPI API token pattern.** `sealed-env scan` and the
+  shipped gitleaks config now detect plaintext `pypi-<macaroon>` tokens
+  (60+ chars base64url) alongside the existing five sealed-env-native
+  patterns. Documented in `SECRET-PATTERNS.md`; positive/negative
+  fixtures in `tests/secret-patterns/{positive,negative}/`. Validator
+  (`scripts/validate-secret-patterns.mjs`) updated to enforce drift
+  detection across the four sources of truth.
+- **`.pypirc` + `.npmrc` added to the scanner's file allowlist.** These
+  extension-less dotfiles are now scanned by default. Tokens in `.pypirc`
+  are the same blast radius as a leaked npm token — Shai-Hulud variants
+  since May 2026 weaponize both.
+- **`sealed-env doctor` checks `.pypirc` for plaintext tokens.** New
+  advisory check `pypi token exposure` reads `~/.pypirc` and cwd
+  `.pypirc` non-destructively and warns if a `pypi-` macaroon is found.
+  Recommends moving to the system keyring or a secret manager.
+
+### Security (repository hardening)
+
+- **Branch protection tightened across all three repos** (`sealed-env`,
+  `shai-hulud-iocs`, `sealed-env-hunt-action`): `enforce_admins`,
+  `dismiss_stale_reviews`, `require_last_push_approval`,
+  `required_linear_history`, and `required_conversation_resolution`
+  are now all enabled. Force pushes and branch deletions remain blocked.
+- **Dependabot security updates enabled** on all three repos.
+- **Commit signing enforced going forward** via SSH signing. The
+  `required_signatures` rule is staged for activation once the
+  maintainer's signing key is registered on GitHub.
+
+### Notes
+
+- The SE-K4 pattern is intentionally namespaced as **external** in the
+  gitleaks tags (`tags = ["sealed-env", "secret", "external", "SE-K4"]`)
+  to make it clear this is not a sealed-env credential. sealed-env scan
+  extends to the supply-chain surface its operators face, not just to
+  secrets it manages directly. The same principle will guide future
+  external patterns (`SE-K5` candidates: GitHub fine-grained PATs,
+  Docker Hub tokens) — they will be added when the operator-overlap
+  argument is equally clear.
+
+---
+
 ## [0.2.2] — 2026-05-23
 
 > IOC-hunter release. No spec changes, no wire format changes. Files sealed
