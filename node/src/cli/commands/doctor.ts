@@ -127,6 +127,7 @@ export function doctorCommand(argv: string[]): void {
   // These are advisory — they don't fail doctor, but they're visible.
   // See: /threat-research/analysis/shai-hulud-defense.md
   checks.push(checkPlaintextKeyExposure());
+  checks.push(checkPyPiTokenExposure());
   checks.push(checkPersistenceMarkers());
   checks.push(checkCiTokenTtl());
 
@@ -295,6 +296,54 @@ function checkPlaintextKeyExposure(): CheckResult {
       `secrets in plaintext: ${findings.join(', ')}. ` +
       `Run \`sealed-env keychain push\` to move them to the OS keychain. ` +
       `See ${SHAI_HULUD_DOC}`,
+  };
+}
+
+/**
+ * Check 1b: PyPI token in plaintext `~/.pypirc` or cwd `.pypirc`.
+ *
+ * Same family of leak as `checkPlaintextKeyExposure` but for the Python
+ * supply chain. Shai-Hulud variants since May 2026 weaponize leaked
+ * PyPI tokens to republish poisoned packages, so an operator who keeps
+ * a plaintext `pypi-` token in `.pypirc` is one infostealer away from
+ * compromise. Matched against the same SE-K4 regex shipped to gitleaks.
+ *
+ * Read-only and non-blocking. We check cwd first (project-scoped tokens),
+ * then `~/.pypirc` (the conventional location).
+ */
+function checkPyPiTokenExposure(): CheckResult {
+  const candidates = [resolve('.pypirc'), join(homedir(), '.pypirc')];
+  const found: string[] = [];
+
+  for (const path of candidates) {
+    if (!existsSync(path)) continue;
+    let head: string;
+    try {
+      head = readFileSync(path, 'utf8').slice(0, 64 * 1024);
+    } catch {
+      continue;
+    }
+    if (/pypi-[A-Za-z0-9_-]{60,500}/.test(head)) {
+      found.push(path);
+    }
+  }
+
+  if (found.length === 0) {
+    return {
+      ok: true,
+      label: 'pypi token exposure',
+      detail: 'no plaintext pypi- tokens in .pypirc (or files absent)',
+    };
+  }
+
+  return {
+    ok: true,
+    warn: true,
+    label: 'pypi token exposure',
+    detail:
+      `plaintext PyPI token in: ${found.join(', ')}. ` +
+      `Consider moving to keyring (\`keyring set https://upload.pypi.org/legacy/ __token__\`) ` +
+      `or a secret manager. See ${SHAI_HULUD_DOC}`,
   };
 }
 
