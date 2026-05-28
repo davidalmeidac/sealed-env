@@ -1,0 +1,9 @@
+# SE-K4 negative cases. Each line MUST NOT match the SE-K4 regex.
+
+pypi-short
+pypi-AgEIcHlwaS5vcmcC
+PyPi-AgEIcHlwaS5vcmcCJDFhMmIzYzRkLTVlNmYtN2c4aC05aTBqLWsxbDJtM240bzVwAAIqWzMs
+api-key=AgEIcHlwaS5vcmcCJDFhMmIzYzRkLTVlNmYtN2c4aC05aTBqLWsxbDJtM240bzVwAAIqWzMs
+# A line that just talks about pypi-something without the token shape
+PYPI=1
+pip install pypi-publisher

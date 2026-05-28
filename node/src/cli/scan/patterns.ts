@@ -92,6 +92,17 @@ export const PATTERNS: readonly SecretPattern[] = [
     regex: /otpauth:\/\/totp\/[^?\s]*\?[^"\s]*secret=([A-Z2-7]{16,64}={0,6})/,
     severity: 'critical',
   },
+  {
+    id: 'SE-K4',
+    label: 'PyPI API token',
+    description:
+      'PyPI API token (pypi-<macaroon>). Sealed-env operators frequently ' +
+      'maintain Python projects alongside Node — Shai-Hulud variants since ' +
+      'May 2026 weaponize leaked PyPI tokens for package republishing. ' +
+      'Commonly leaked in plaintext `.pypirc` files.',
+    regex: /pypi-[A-Za-z0-9_-]{60,500}/,
+    severity: 'critical',
+  },
 ];
 
 /**

@@ -62,6 +62,11 @@ const PATTERNS = [
     description: 'otpauth:// URI carrying TOTP secret',
     regex: /otpauth:\/\/totp\/[^?\s]*\?[^"\s]*secret=([A-Z2-7]{16,64}={0,6})/,
   },
+  {
+    id: 'SE-K4',
+    description: 'PyPI API token (external)',
+    regex: /pypi-[A-Za-z0-9_-]{60,500}/,
+  },
 ];
 
 // -----------------------------------------------------------------

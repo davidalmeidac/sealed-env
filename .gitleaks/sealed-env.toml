@@ -83,6 +83,19 @@ tags        = ["sealed-env", "secret", "key", "SE-K3-URI"]
 secretGroup = 1
 
 # -----------------------------------------------------------------
+# SE-K4 — PyPI API token (commonly leaked in plaintext .pypirc)
+# Not a sealed-env secret per se — sealed-env scan extends coverage
+# to the same supply-chain surface its operators face. Shai-Hulud
+# variants since May 2026 weaponize leaked PyPI tokens.
+# -----------------------------------------------------------------
+[[rules]]
+id          = "sealed-env-pypi-token"
+description = "PyPI API token (pypi-<macaroon>)"
+regex       = '''pypi-[A-Za-z0-9_-]{60,500}'''
+keywords    = ["pypi-"]
+tags        = ["sealed-env", "secret", "external", "SE-K4"]
+
+# -----------------------------------------------------------------
 # Allowlist — known-safe contexts
 # Adjust this list when adopting in your own repo. The defaults here
 # cover sealed-env's own docs and fixtures.
