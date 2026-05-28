@@ -21,6 +21,7 @@ a `[BREAKING]` heading and tagged `secret-patterns` in the release.
 | `SE-K1` | Master key (env var) | `SEALED_ENV_KEY=` | 64 hex chars | `[0-9a-fA-F]` |
 | `SE-K2` | Signing key (env var) | `SEALED_ENV_SIGNING_KEY=` | 64 hex chars | `[0-9a-fA-F]` |
 | `SE-K3` | TOTP secret (env var) | `SEALED_ENV_TOTP_SECRET=` | 16–64 base32 chars | `[A-Z2-7]+={0,6}` |
+| `SE-K4` | PyPI API token (external) | `pypi-` | 60–500 base64url chars | `[A-Za-z0-9_-]` |
 
 If a string matches any pattern in this table, **treat it as a high-severity
 secret leak**. None of these values are intended to appear in source control,
@@ -269,6 +270,71 @@ SEALED_ENV_TOTP_SECRET=                                # empty value
   `otpauth://` URI as the same secret in a different encoding (covered
   by a separate, optional pattern `SE-K3-URI` if vendors want it —
   see "Optional extensions" below).
+
+---
+
+## SE-K4 — PyPI API Token (external)
+
+Not a sealed-env credential. sealed-env scan extends coverage to PyPI
+tokens because the operator population overlaps (Python projects sit
+beside Node projects) and because Shai-Hulud variants since May 2026
+weaponize leaked PyPI tokens to republish poisoned packages.
+
+Lives in plaintext in `~/.pypirc` by default unless the operator
+uses a secret manager or keyring. The `.pypirc` filename is added
+to the scanner's allowlist of files-without-an-extension that are
+still scanned.
+
+**Severity if leaked**: critical. A leaked PyPI token grants publish
+rights to every package the operator owns — the same blast radius
+as a leaked npm token.
+
+### Regex (Perl-compatible)
+
+```
+pypi-[A-Za-z0-9_-]{60,500}
+```
+
+### Structure
+
+PyPI tokens are macaroons (RFC-style serialized) base64url-encoded
+after the `pypi-` prefix. The decoded macaroon contains the issuer
+(`pypi.org`), an identifier nonce, and zero or more caveats (scope,
+expiration). The wire format is documented at
+https://docs.pypi.org/api-tokens/.
+
+### Positive examples (will match)
+
+```
+pypi-AgEIcHlwaS5vcmcCJDFhMmIzYzRkLTVlNmYtN2c4aC05aTBqLWsxbDJtM240bzVwAAIqWzMsImI4ZjFhMmIzYzRkNWU2ZjdnOGg5aTBqMWsybDNtNG41bzZwIl0AAAYg
+pypi-AgEIcHlwaS5vcmcCJDAxRkE1RTAyLUE0NEEtNDgxRC1CRTI4LURFQjU1RDdEMTJBRgACBnNjb3BlBAlwcm9qZWN0czAEDXNlY3JldHMtdmF1bHQAAAYgs6BFh-N4
+```
+
+### Negative examples (must NOT match)
+
+```
+pypi-short                         # too short
+pypi-AgEIcHlwaS5vcmcC              # below 60-char floor (just the issuer prefix)
+PyPi-AgEIcHlwaS5vcmcC...           # wrong case
+xpypi-AgEIcHlwaS5vcmcC...          # not at boundary
+api-key=AgEIcHlwaS5vcmcC...        # no pypi- prefix
+```
+
+### False-positive mitigation
+
+The `pypi-` prefix is short but the 60-char floor on the base64url
+body eliminates most natural-language matches. If you see this
+pattern in source, treat it as a real leak even if the surrounding
+context says "example" — the format is too specific for accidental
+collision and the macaroon is verifiable: decode and check the
+issuer is `pypi.org`.
+
+### File coverage
+
+When invoked without an explicit path, `sealed-env scan` now reads
+files named `.pypirc` (and `.npmrc`) even when they have no
+recognized extension. This is in addition to the existing dotenv,
+shell-rc, and Docker/Make file coverage.
 
 ---
 
