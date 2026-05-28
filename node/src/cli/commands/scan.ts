@@ -123,6 +123,8 @@ const TEXT_FILENAMES = new Set([
   '.bashrc',
   '.zshrc',
   '.profile',
+  '.pypirc',
+  '.npmrc',
 ]);
 
 const MAX_DISPLAY_MATCH = 80;
