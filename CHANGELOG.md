@@ -12,6 +12,30 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ## [Unreleased]
 
+### Added
+
+- **`sealed-env doctor --remediate`.** Closes P1.4 of the defense
+  improvement roadmap. When persistence markers are found, the flag
+  offers to remove them: each file is copied into
+  `.sealed-env-quarantine/<timestamp>/` (with a `manifest.json` mapping
+  every copy back to its origin) before the original is deleted.
+  Requires an interactive `y` confirmation and refuses outright without
+  a TTY, so it can never delete files from a CI run.
+
+  Findings split into two classes and only one is ever auto-removed.
+  **Removable**: files whose existence under that exact name is itself
+  the indicator — `.vscode/setup.mjs`, `.claude/setup.mjs`, and systemd
+  units / LaunchAgents matching the documented marker names.
+  **Manual-only**: `.vscode/tasks.json` and `.claude/settings.json`,
+  where a malicious *entry* is the indicator rather than the file.
+  Deleting those to remove one entry would destroy legitimate operator
+  configuration, so they are reported and left untouched.
+
+  Detection moved to `node/src/cli/doctor/persistence.ts` with injected
+  roots, so it is unit tested against a real temp filesystem rather than
+  mocks — including the negative case that a legitimate
+  `.vscode/tasks.json` survives remediation.
+
 ### Spec
 
 - **SPEC.md §11 (Token format) + §12 (Deploy mode + ephemeral tokens) added.**
