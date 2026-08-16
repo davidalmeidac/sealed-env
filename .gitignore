@@ -38,3 +38,10 @@ presentation/diagrams/
 
 # AI planning artifacts (session-local, not project source)
 .atl/
+.engram/
+.claude/
+.cursor/
+.aider*
+CLAUDE.md
+AGENTS.md
+openspec/
