@@ -17,6 +17,28 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 - **SPEC.md §11 (Token format) + §12 (Deploy mode + ephemeral tokens) added.**
   Defines the cross-stack contract for `0.3.0` Credential Modernization. Doc-only — no runtime code yet. Runtime implementation begins after this PR merges and applies across Node, Java, and Rust (sister `sealed-env-studio`). See `test-vectors/v1/credential-modernization-*.json` for the 11 byte-identical fixtures.
 
+### Dependencies
+
+- `jackson-databind` 2.17.2 → **2.18.9** (Java) — clears five Dependabot
+  advisories: GHSA-j3rv-43j4-c7qm and GHSA-rmj7-2vxq-3g9f (both high,
+  `PolymorphicTypeValidator` bypasses), GHSA-hgj6-7826-r7m5
+  (`InetSocketAddress` deserialization triggering eager DNS, SSRF),
+  GHSA-3pjw-73gf-8qr5 (`@JsonIgnore` on a Record bypassed by a
+  `PropertyNamingStrategy`), and GHSA-5jmj-h7xm-6q6v (case-insensitive
+  deserialization bypassing per-property `@JsonIgnoreProperties`).
+
+  None are reachable from sealed-env. `UnsealToken` is the only databind
+  caller and uses `readTree()` into `JsonNode` exclusively — no
+  `readValue()` into POJOs, no default typing, no
+  `PolymorphicTypeValidator`, no records, no `InetSocketAddress` — and it
+  verifies the HMAC signature before parsing, so untrusted bytes never
+  reach the parser. Bumped as hygiene for downstream Dependabot status,
+  same rationale as the `bouncycastle` bump in `0.2.0`.
+
+  No wire-format or API change. The Node package was already at zero
+  advisories; the remaining low-severity `body-parser` alert is in
+  `examples/node-express/`, which is sample code and is not published.
+
 ---
 
 ## [0.2.3] — 2026-05-28
