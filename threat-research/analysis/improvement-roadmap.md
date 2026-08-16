@@ -85,8 +85,11 @@ disposable infrastructure.
 
 **Implications for sealed-env**:
 - Our `doctor --check-ide-hooks` (shipped in 0.2.1) detects this.
-- Should add a `--remediate` flag that offers to remove the files
-  after user confirmation.
+- `doctor --remediate` (P1.4) now offers to remove them after
+  confirmation, quarantining a copy first. Note the deliberate limit:
+  it removes dropped loader files and suspiciously named daemons, but
+  never `.vscode/tasks.json` or `.claude/settings.json` — those are
+  operator-owned config where only the injected entry is malicious.
 
 ---
 
@@ -213,6 +216,10 @@ warn if found. Low effort, signals defense-in-depth posture.
 ## Prioritized improvement list
 
 ### Priority 1 — ship in 0.2.2 (≤1 month)
+
+> **Status: all seven shipped.** P1.1 / P1.2 / P1.3 / P1.5 / P1.6 in
+> `0.2.1`–`0.2.2`, P1.7 (`SE-K4`) in `0.2.3`, P1.4 (`doctor --remediate`)
+> in `[Unreleased]`. Priority 1 is closed; the next open work is P2.
 
 #### P1.1 — Extend `doctor` persistence check to Linux systemd units
 
