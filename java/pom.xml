@@ -58,7 +58,7 @@
       code paths (we use BC only for Argon2id), but bumping keeps clean
       Dependabot status for downstream consumers.
     -->
-    <bouncycastle.version>1.84</bouncycastle.version>
+    <bouncycastle.version>1.85</bouncycastle.version>
     <!--
       jackson 2.18.9 clears five Dependabot advisories against 2.17.2:
         GHSA-j3rv-43j4-c7qm (high)   PolymorphicTypeValidator bypass via
