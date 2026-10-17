@@ -12,10 +12,56 @@ files written today will remain readable forever. See [SPEC.md](./SPEC.md).
 
 ## [Unreleased]
 
+### Added
+
+- **`sealed-env doctor --remediate`.** Closes P1.4 of the defense
+  improvement roadmap. When persistence markers are found, the flag
+  offers to remove them: each file is copied into
+  `.sealed-env-quarantine/<timestamp>/` (with a `manifest.json` mapping
+  every copy back to its origin) before the original is deleted.
+  Requires an interactive `y` confirmation and refuses outright without
+  a TTY, so it can never delete files from a CI run.
+
+  Findings split into two classes and only one is ever auto-removed.
+  **Removable**: files whose existence under that exact name is itself
+  the indicator — `.vscode/setup.mjs`, `.claude/setup.mjs`, and systemd
+  units / LaunchAgents matching the documented marker names.
+  **Manual-only**: `.vscode/tasks.json` and `.claude/settings.json`,
+  where a malicious *entry* is the indicator rather than the file.
+  Deleting those to remove one entry would destroy legitimate operator
+  configuration, so they are reported and left untouched.
+
+  Detection moved to `node/src/cli/doctor/persistence.ts` with injected
+  roots, so it is unit tested against a real temp filesystem rather than
+  mocks — including the negative case that a legitimate
+  `.vscode/tasks.json` survives remediation.
+
 ### Spec
 
 - **SPEC.md §11 (Token format) + §12 (Deploy mode + ephemeral tokens) added.**
   Defines the cross-stack contract for `0.3.0` Credential Modernization. Doc-only — no runtime code yet. Runtime implementation begins after this PR merges and applies across Node, Java, and Rust (sister `sealed-env-studio`). See `test-vectors/v1/credential-modernization-*.json` for the 11 byte-identical fixtures.
+
+### Dependencies
+
+- `jackson-databind` 2.17.2 → **2.18.9** (Java) — clears five Dependabot
+  advisories: GHSA-j3rv-43j4-c7qm and GHSA-rmj7-2vxq-3g9f (both high,
+  `PolymorphicTypeValidator` bypasses), GHSA-hgj6-7826-r7m5
+  (`InetSocketAddress` deserialization triggering eager DNS, SSRF),
+  GHSA-3pjw-73gf-8qr5 (`@JsonIgnore` on a Record bypassed by a
+  `PropertyNamingStrategy`), and GHSA-5jmj-h7xm-6q6v (case-insensitive
+  deserialization bypassing per-property `@JsonIgnoreProperties`).
+
+  None are reachable from sealed-env. `UnsealToken` is the only databind
+  caller and uses `readTree()` into `JsonNode` exclusively — no
+  `readValue()` into POJOs, no default typing, no
+  `PolymorphicTypeValidator`, no records, no `InetSocketAddress` — and it
+  verifies the HMAC signature before parsing, so untrusted bytes never
+  reach the parser. Bumped as hygiene for downstream Dependabot status,
+  same rationale as the `bouncycastle` bump in `0.2.0`.
+
+  No wire-format or API change. The Node package was already at zero
+  advisories; the remaining low-severity `body-parser` alert is in
+  `examples/node-express/`, which is sample code and is not published.
 
 ---
 

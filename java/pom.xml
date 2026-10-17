@@ -59,7 +59,32 @@
       Dependabot status for downstream consumers.
     -->
     <bouncycastle.version>1.84</bouncycastle.version>
-    <jackson.version>2.17.2</jackson.version>
+    <!--
+      jackson 2.18.9 clears five Dependabot advisories against 2.17.2:
+        GHSA-j3rv-43j4-c7qm (high)   PolymorphicTypeValidator bypass via
+                                     generic type parameters
+        GHSA-rmj7-2vxq-3g9f (high)   array subtype allowlist bypass in
+                                     BasicPolymorphicTypeValidator
+        GHSA-hgj6-7826-r7m5 (medium) InetSocketAddress deserialization
+                                     triggers eager DNS resolution (SSRF)
+        GHSA-3pjw-73gf-8qr5 (medium) @JsonIgnore on a Record property
+                                     bypassed by a PropertyNamingStrategy
+        GHSA-5jmj-h7xm-6q6v (medium) case-insensitive deserialization
+                                     bypasses per-property @JsonIgnoreProperties
+
+      None of the five are reachable from sealed-env. UnsealToken is our
+      only databind caller and it uses ObjectMapper.readTree() into
+      JsonNode exclusively — no readValue() into POJOs, no default typing,
+      no PolymorphicTypeValidator, no records, no InetSocketAddress. The
+      polymorphic and deserialization-binding bugs all require machinery
+      we never invoke. UnsealToken also verifies the HMAC signature BEFORE
+      parsing, so untrusted bytes never reach the parser at all.
+
+      Bumped anyway, same reasoning as bouncycastle below: downstream
+      consumers run their own scanners, and a red Dependabot badge on a
+      supply-chain-security library costs more than a patch bump.
+    -->
+    <jackson.version>2.18.9</jackson.version>
     <spring-boot.version>3.3.4</spring-boot.version>
 
     <!-- Test versions -->
