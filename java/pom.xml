@@ -84,7 +84,7 @@
       consumers run their own scanners, and a red Dependabot badge on a
       supply-chain-security library costs more than a patch bump.
     -->
-    <jackson.version>2.18.9</jackson.version>
+    <jackson.version>2.18.11</jackson.version>
     <spring-boot.version>3.3.4</spring-boot.version>
 
     <!-- Test versions -->
